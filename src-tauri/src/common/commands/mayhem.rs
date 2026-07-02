@@ -36,12 +36,15 @@ pub struct RankedItem {
     pub num_games: u64,
 }
 
-/// 三连海克斯组合。
+/// 三连海克斯组合。Blitz 对 trio 只给档位(tier 1-5, 1=最优)，不给具体胜率。
 #[derive(Debug, Clone, Serialize)]
 pub struct AugmentTrio {
     pub ids: [u32; 3],
     pub names: [String; 3],
-    pub win_rate: f64,
+    /// 胜率档位，1=最优、5=最差。
+    pub win_rate_tier: u64,
+    /// 选取率档位，1=最热。
+    pub pick_rate_tier: u64,
     pub num_games: u64,
 }
 
@@ -68,11 +71,18 @@ fn as_f64(v: &Value) -> f64 {
     }
 }
 
-/// 兼容字符串或数字的 u64 取值。
+/// 兼容字符串或数字的 u64 取值（含浮点串/浮点数如 "1234.0" → 1234）。
 fn as_u64(v: &Value) -> u64 {
     match v {
-        Value::Number(n) => n.as_u64().unwrap_or(0),
-        Value::String(s) => s.parse().unwrap_or(0),
+        Value::Number(n) => n
+            .as_u64()
+            .or_else(|| n.as_f64().map(|f| f as u64))
+            .unwrap_or(0),
+        Value::String(s) => s
+            .parse::<u64>()
+            .ok()
+            .or_else(|| s.parse::<f64>().ok().map(|f| f as u64))
+            .unwrap_or(0),
         _ => 0,
     }
 }
@@ -99,8 +109,8 @@ pub fn shape_mayhem(
     let mut core_items = shape_items(data.get("items"));
     core_items.sort_by(|a, b| b.win_rate.total_cmp(&a.win_rate));
 
+    // shape_trios 内部已按档位排好序（trio 无具体 win_rate，只有 tier）
     let mut trios = shape_trios(data.get("augment_trios"), store);
-    trios.sort_by(|a, b| b.win_rate.total_cmp(&a.win_rate));
     trios.truncate(top_trios);
 
     MayhemChampion {
@@ -157,7 +167,8 @@ fn shape_trios(trios: Option<&Value>, store: &AugmentMetaStore) -> Vec<AugmentTr
     let Some(map) = trios.and_then(|v| v.as_object()) else {
         return Vec::new();
     };
-    map.iter()
+    let mut out: Vec<AugmentTrio> = map
+        .iter()
         .filter_map(|(key, stat)| {
             let ids = parse_trio_key(key)?;
             let names = [
@@ -168,11 +179,28 @@ fn shape_trios(trios: Option<&Value>, store: &AugmentMetaStore) -> Vec<AugmentTr
             Some(AugmentTrio {
                 ids,
                 names,
-                win_rate: field_f64(stat, "win_rate"),
+                win_rate_tier: field_u64(stat, "win_rate_tier"),
+                pick_rate_tier: field_u64(stat, "pick_rate_tier"),
                 num_games: field_u64(stat, "num_games"),
             })
         })
-        .collect()
+        .collect();
+    // 按胜率档位升序(1=最优)；缺失档位(0)视为最差沉底；同档按对局数降序(更可靠)
+    out.sort_by(|a, b| {
+        tier_key(a.win_rate_tier)
+            .cmp(&tier_key(b.win_rate_tier))
+            .then(b.num_games.cmp(&a.num_games))
+    });
+    out
+}
+
+/// 档位排序键：有效档位 1-5 原样，缺失(0)映射为最大值沉底。
+fn tier_key(tier: u64) -> u64 {
+    if tier == 0 {
+        u64::MAX
+    } else {
+        tier
+    }
 }
 
 /// 解析 "1020:1138:2102" → [1020,1138,2102]。
@@ -245,15 +273,56 @@ mod tests {
     }
 
     #[test]
-    fn trios_parsed_and_topn() {
+    fn trios_topn_and_tier_monotonic() {
         let m = shape_mayhem(&blitz_data(), "16.13", 5, &store(), 8);
         assert!(!m.trios.is_empty());
         assert!(m.trios.len() <= 8);
+        // 按 win_rate_tier 升序（1=最优）单调
         for w in m.trios.windows(2) {
-            assert!(w[0].win_rate >= w[1].win_rate, "三连未按胜率降序");
+            assert!(
+                tier_key(w[0].win_rate_tier) <= tier_key(w[1].win_rate_tier),
+                "三连未按档位升序"
+            );
         }
-        // trio key "a:b:c" 解析为 3 个 id
-        assert_eq!(m.trios[0].ids.len(), 3);
+        // top1 必是最优档(fixture 有 70 个 tier1)
+        assert_eq!(m.trios[0].win_rate_tier, 1, "top1 应为最优档");
+    }
+
+    #[test]
+    fn trios_sorted_by_tier_not_key_order() {
+        // key 字典序 "1:1:1" < "9:9:9"，但让 9:9:9 档位更优(1)——验证按档位而非按 key 截断
+        let data = serde_json::json!({
+            "augment_trios": {
+                "1:1:1": {"win_rate_tier":"5","pick_rate_tier":"3","num_games":"100"},
+                "9:9:9": {"win_rate_tier":"1","pick_rate_tier":"2","num_games":"50"},
+                "5:5:5": {"win_rate_tier":"3","pick_rate_tier":"3","num_games":"80"}
+            }
+        });
+        let m = shape_mayhem(&data, "x", 5, &store(), 8);
+        assert_eq!(m.trios[0].ids, [9, 9, 9], "应按档位取最优，非按 key 字典序");
+        assert_eq!(m.trios[0].win_rate_tier, 1);
+    }
+
+    #[test]
+    fn trios_same_tier_break_by_num_games() {
+        let data = serde_json::json!({
+            "augment_trios": {
+                "1:1:1": {"win_rate_tier":"1","pick_rate_tier":"1","num_games":"50"},
+                "2:2:2": {"win_rate_tier":"1","pick_rate_tier":"1","num_games":"200"}
+            }
+        });
+        let m = shape_mayhem(&data, "x", 5, &store(), 8);
+        assert_eq!(m.trios[0].ids, [2, 2, 2], "同档按对局数降序");
+    }
+
+    #[test]
+    fn value_parsing_edges() {
+        assert!((as_f64(&serde_json::json!("3.9E-4")) - 3.9e-4).abs() < 1e-12);
+        assert_eq!(as_f64(&serde_json::json!("")), 0.0);
+        assert_eq!(as_f64(&Value::Null), 0.0);
+        assert_eq!(as_u64(&serde_json::json!("148729")), 148729);
+        assert_eq!(as_u64(&serde_json::json!("1234.0")), 1234, "浮点串应转整数不清零");
+        assert_eq!(as_u64(&serde_json::json!(1234.0)), 1234, "浮点数应转整数不清零");
     }
 
     #[test]
