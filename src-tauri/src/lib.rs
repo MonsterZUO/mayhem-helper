@@ -68,6 +68,7 @@ pub fn run() {
             common::commands::builds::get_champion_runes,
             common::commands::builds::get_all_runes,
             common::commands::builds::apply_champion_build,
+            common::commands::mayhem::get_mayhem_champion,
             common::commands::game::launch_game,
             common::commands::game::detect_game_path,
             common::commands::game::select_game_path,
