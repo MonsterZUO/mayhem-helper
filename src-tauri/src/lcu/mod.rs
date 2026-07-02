@@ -3,6 +3,7 @@ pub mod champ_select;
 pub mod connection;
 pub mod ddragon;
 pub mod gameflow;
+pub mod item_sets;
 pub mod lobby;
 pub mod matches;
 pub mod matchmaking;
