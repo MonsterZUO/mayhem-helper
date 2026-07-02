@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Nidalee",
+  "productName": "MayhemHelper",
   "version": "2.0.1",
-  "identifier": "com.nidalee.lol-assistant",
+  "identifier": "com.mayhemhelper.aram",
   "build": {
     "removeUnusedCommands": true,
     "frontendDist": "../dist",
@@ -42,9 +42,9 @@
     }
   },
   "bundle": {
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "active": true,
-    "targets": ["msi", "dmg"],
+    "targets": ["nsis", "msi", "dmg"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "resources": ["resources/mayhem-snapshot.json"],
     "externalBin": [],
@@ -69,7 +69,7 @@
     "dialog": null,
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE4RDMzMTg2OTA4MTZBMkIKUldRcmFvR1FoakhUR0hncUtoakkwV0t4V2pEVU5jM1hXbGRiNVJQSUpXRGY1K1ZZaFkwNCs2RGkK",
-      "endpoints": ["https://github.com/codeXcn/Nidalee/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/MonsterZUO/mayhem-helper/releases/latest/download/latest.json"],
       "windows": {
         "installMode": "passive"
       }
