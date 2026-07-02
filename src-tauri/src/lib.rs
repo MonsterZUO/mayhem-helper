@@ -31,6 +31,7 @@ pub fn run() {
             lcu::champ_select::commands::get_champselect_team_players_info,
             lcu::champ_select::commands::get_champ_select_session,
             lcu::champ_select::commands::get_champ_select_session_typed,
+            lcu::champ_select::commands::get_current_champion_id,
             lcu::champ_select::commands::pick_champion,
             lcu::champ_select::commands::ban_champion,
             lcu::matchmaking::commands::start_matchmaking,

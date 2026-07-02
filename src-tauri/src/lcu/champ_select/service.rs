@@ -241,3 +241,55 @@ pub async fn get_champselect_team_players_info(
     }
     Ok(match_map)
 }
+
+/// 从选英雄 session 提取本地玩家当前英雄 id（有效 >0，否则 None）。
+///
+/// 海克斯大乱斗随机分配 + reroll + trade 后 championId 会变，均经
+/// `local_player_cell_id → my_team[cell].champion_id` 读取（不走 SR 征召的 actions）。
+pub fn local_player_champion_id(session: &ChampSelectSession) -> Option<u32> {
+    pick_local_champion(
+        session.local_player_cell_id,
+        session.my_team.iter().map(|p| (p.cell_id, p.champion_id)),
+    )
+}
+
+/// 纯逻辑：在 (cell_id, champion_id) 序列中取本地 cell 的有效英雄。
+fn pick_local_champion(
+    local_cell_id: i32,
+    team: impl Iterator<Item = (i32, Option<f64>)>,
+) -> Option<u32> {
+    team.filter(|(cell, _)| *cell == local_cell_id)
+        .filter_map(|(_, champ)| champ)
+        .find(|id| *id > 0.0)
+        .map(|id| id as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pick_local_champion;
+
+    #[test]
+    fn picks_local_cell_champion() {
+        let team = [(0, Some(1.0)), (1, Some(5.0)), (2, None)];
+        assert_eq!(pick_local_champion(1, team.into_iter()), Some(5));
+    }
+
+    #[test]
+    fn none_when_unassigned() {
+        let team = [(0, Some(0.0)), (1, None)];
+        assert_eq!(pick_local_champion(1, team.into_iter()), None);
+    }
+
+    #[test]
+    fn reroll_changes_champion() {
+        // 大乱斗 reroll/trade：同 cell championId 变化，读取随之更新
+        assert_eq!(pick_local_champion(3, [(3, Some(10.0))].into_iter()), Some(10));
+        assert_eq!(pick_local_champion(3, [(3, Some(22.0))].into_iter()), Some(22));
+    }
+
+    #[test]
+    fn ignores_other_players() {
+        let team = [(0, Some(99.0)), (5, Some(7.0))];
+        assert_eq!(pick_local_champion(5, team.into_iter()), Some(7));
+    }
+}

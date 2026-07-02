@@ -20,6 +20,15 @@ pub async fn get_champ_select_session_typed() -> Result<lcu::types::ChampSelectS
     lcu::champ_select::service::get_champ_select_session(client).await
 }
 
+/// 选英雄阶段取本地玩家当前英雄 id（供海克斯大乱斗推荐自动跟随）。
+/// 未在选英雄/未分配时返回 Ok(None)。
+#[tauri::command]
+pub async fn get_current_champion_id() -> Result<Option<u32>, String> {
+    let client = http_client::get_lcu_client();
+    let session = lcu::champ_select::service::get_champ_select_session(client).await?;
+    Ok(lcu::champ_select::service::local_player_champion_id(&session))
+}
+
 #[tauri::command]
 pub async fn pick_champion(
     action_id: u64,
