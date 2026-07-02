@@ -74,7 +74,8 @@ mod tests {
     use super::*;
 
     fn sample() -> SnapshotStore {
-        SnapshotStore::from_json(include_str!("../../resources/mayhem-snapshot.json")).unwrap()
+        // 用小 fixture(2 英雄)，不把 14MB 生产快照编进测试二进制
+        SnapshotStore::from_json(include_str!("fixtures/mayhem-snapshot-sample.json")).unwrap()
     }
 
     #[test]

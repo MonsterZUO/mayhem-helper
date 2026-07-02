@@ -1,4 +1,20 @@
-# 🎮 Nidalee
+# 🎲 Mayhem Helper（海克斯大乱斗助手）
+
+> **本项目是 [Nidalee](https://github.com/codeXcn/Nidalee)（CC BY-NC-SA 4.0）的衍生作品**，专为**国服海克斯大乱斗（ARAM: Mayhem）**增加：游戏内浮层看海克斯优先级、客户端一键导入出装、离线速查库。遵循 CC BY-NC-SA 4.0（署名 + 非商用 + 同样式共享）。
+
+**给 agent / 开发者**：动手前先读 [`CONTEXT.md`](./CONTEXT.md)（术语）、[`docs/target-effect.md`](./docs/target-effect.md)（目标效果）、[`docs/adr/`](./docs/adr)（关键决策）、[`docs/self-acceptance.md`](./docs/self-acceptance.md)（验收状态与 Windows 待验项）。
+
+**关键须知**：
+- 🖥️ **运行在 Windows**（LoL 国服）。开发机可 macOS，但 LCU/浮层/出装写入等活体功能须 Windows 验。
+- 🌐 **数据源 Blitz Datalake 是外服(KR)**——国服无代理能否连通**须真机实测**（见 ADR-0001）。连不上时自动回退**打包的 173 英雄出厂快照**。
+- 🎯 浮层游戏须设**无边框**模式方可覆盖显示。
+- 🚫 只走官方 LCU + OS 置顶窗，**不注入 / 不读屏 / 不替你选三选一**。
+
+数据来源：Blitz Datalake（战绩）、CommunityDragon（海克斯元数据）。
+
+---
+
+# 🎮 Nidalee（上游基座）
 
 ![Nidalee Logo](src/assets/logo.svg)
 

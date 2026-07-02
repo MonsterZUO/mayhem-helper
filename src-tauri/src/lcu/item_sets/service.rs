@@ -3,7 +3,7 @@
 use super::types::{
     ItemBlockEntry, ItemEntry, ItemSetEntry, HOWLING_ABYSS_MAP_ID, MAYHEM_SET_TITLE_PREFIX,
 };
-use crate::lcu::request::{lcu_get, lcu_put};
+use crate::lcu::request::{lcu_get, lcu_put_no_content};
 use crate::lcu::types::SummonerInfo;
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -78,8 +78,8 @@ pub async fn apply_mayhem_item_set(
         .map_err(|e| format!("序列化 item-set 失败: {}", e))?;
     let body = merge_item_sets(&existing, our_set, account_id, timestamp);
 
-    let _: Value = lcu_put(client, &path, body).await?;
-    Ok(())
+    // LCU 该端点写入成功常返回空 body，用 no_content 避免 EOF 假失败（ce-code-review）
+    lcu_put_no_content(client, &path, body).await
 }
 
 #[cfg(test)]

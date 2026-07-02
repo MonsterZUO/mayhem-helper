@@ -23,9 +23,13 @@ function search() {
 
 async function importItemSet() {
   if (!championId.value || !data.value) return
+  const itemIds = data.value.core_items.slice(0, 6).map((i) => i.id)
+  if (itemIds.length === 0) {
+    toast.error('该英雄暂无核心出装数据')
+    return
+  }
   importing.value = true
   try {
-    const itemIds = data.value.core_items.slice(0, 6).map((i) => i.id)
     const msg = await applyMayhemItemSet(championId.value, itemIds)
     toast.success(msg)
   } catch (err) {

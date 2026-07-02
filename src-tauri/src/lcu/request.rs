@@ -158,6 +158,15 @@ pub async fn lcu_patch_no_content(client: &Client, path: &str, body: Value) -> R
         Err(format!("服务器返回错误: {}", response.status()))
     }
 }
+/// PUT，只关心成功状态不反序列化 body（LCU 写接口常返回空 body，避免 EOF 假失败）
+pub async fn lcu_put_no_content(client: &Client, path: &str, body: Value) -> Result<(), String> {
+    let response = lcu_request_raw(client, Method::PUT, path, Some(body)).await?;
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("服务器返回错误: {}", response.status()))
+    }
+}
 
 /// 通用 champ-r HTTP 请求，返回反序列化后的数据
 pub async fn forin_request_json<T: DeserializeOwned>(
