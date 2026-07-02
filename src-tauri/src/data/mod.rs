@@ -1,2 +1,3 @@
 //! 外部数据源层：海克斯大乱斗等第三方战绩数据。
+pub mod augments;
 pub mod blitz;
