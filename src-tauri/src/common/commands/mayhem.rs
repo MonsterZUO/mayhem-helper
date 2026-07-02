@@ -4,12 +4,17 @@
 //! 海克斯按胜率排序、核心出装、top 三连组合。数据驱动（只看 win_rate），不看英雄静态标签。
 
 use crate::data::augments::{AugmentMetaStore, AugmentRarity};
-use crate::data::blitz;
+use crate::data::{blitz, snapshot};
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::OnceLock;
 
 /// 数据来源标识。当前仅外服 KR 代理（见 ADR-0001）。
 const DATA_SOURCE: &str = "KR";
+/// 快照兜底时的来源标识。
+const DATA_SOURCE_SNAPSHOT: &str = "KR·出厂";
+/// cdragon 元数据不可达时的空占位表。
+static EMPTY_AUGMENT_STORE: OnceLock<AugmentMetaStore> = OnceLock::new();
 /// 默认返回 top 三连组合数。
 const TOP_TRIOS: usize = 8;
 
@@ -224,18 +229,40 @@ async fn augment_store(client: &reqwest::Client) -> Result<&'static AugmentMetaS
 }
 
 /// Tauri 命令：取某英雄的海克斯大乱斗推荐。
+/// 三层取数：实时 Blitz → 出厂快照（Blitz 不可达兜底，深审 F1/F5）。
 #[tauri::command]
 pub async fn get_mayhem_champion(champion_id: u32) -> Result<MayhemChampion, String> {
     let client = reqwest::Client::new();
-    let raw = blitz::fetch_mayhem_champion(&client, &champion_id.to_string()).await?;
-    let store = augment_store(&client).await?;
-    Ok(shape_mayhem(
-        &raw.data,
-        &raw.patch,
-        champion_id,
-        store,
-        TOP_TRIOS,
-    ))
+    // 元数据 best-effort：cdragon 不可达时用空占位（海克斯显示为 id），不阻断
+    let store = match augment_store(&client).await {
+        Ok(store) => store,
+        Err(e) => {
+            log::warn!("海克斯元数据不可达，用占位: {}", e);
+            EMPTY_AUGMENT_STORE.get_or_init(AugmentMetaStore::default)
+        }
+    };
+
+    match blitz::fetch_mayhem_champion(&client, &champion_id.to_string()).await {
+        Ok(raw) => Ok(shape_mayhem(
+            &raw.data,
+            &raw.patch,
+            champion_id,
+            store,
+            TOP_TRIOS,
+        )),
+        Err(live_err) => match snapshot::snapshot_get(champion_id) {
+            Some((data, patch)) => {
+                log::warn!("Blitz 不可达，回退出厂快照: {}", live_err);
+                let mut champ = shape_mayhem(&data, &patch, champion_id, store, TOP_TRIOS);
+                champ.source = DATA_SOURCE_SNAPSHOT.to_string();
+                Ok(champ)
+            }
+            None => Err(format!(
+                "Blitz 不可达且无该英雄出厂快照: {}",
+                live_err
+            )),
+        },
+    }
 }
 
 #[cfg(test)]

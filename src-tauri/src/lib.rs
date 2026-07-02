@@ -23,6 +23,16 @@ pub fn run() {
                 if let Some(overlay_win) = app.get_webview_window(overlay::OVERLAY_LABEL) {
                     let _ = overlay_win.set_ignore_cursor_events(true);
                 }
+
+                // 载入出厂快照（Blitz 不可达兜底，best-effort）
+                if let Ok(path) = app.path().resolve(
+                    "resources/mayhem-snapshot.json",
+                    tauri::path::BaseDirectory::Resource,
+                ) {
+                    if let Ok(json) = std::fs::read_to_string(&path) {
+                        data::snapshot::init_snapshot(&json);
+                    }
+                }
             }
             Ok(())
         })
