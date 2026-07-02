@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Nidalee",
+  "version": "2.0.1",
+  "identifier": "com.nidalee.lol-assistant",
+  "build": {
+    "removeUnusedCommands": true,
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1422",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Nidalee - 高性能、体积小巧的智能英雄联盟游戏助手",
+        "width": 1280,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 720,
+        "center": true,
+        "resizable": true,
+        "decorations": false,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true,
+    "active": true,
+    "targets": ["msi", "dmg"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "Copyright © 2024 Nidalee Team. All rights reserved.",
+    "category": "Game",
+    "shortDescription": "高性能、体积小巧的智能英雄联盟游戏助手",
+    "longDescription": "Nidalee 是一个高性能、体积小巧的智能英雄联盟游戏助手，提供实时游戏数据分析、自动化功能和个性化设置。",
+    "publisher": "Nidalee Team",
+    "homepage": "https://github.com/codexlin/Nidalee",
+    "licenseFile": "../LICENSE",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": null,
+      "tsp": false,
+      "wix": {
+        "language": "zh-CN"
+      }
+    }
+  },
+  "plugins": {
+    "dialog": null,
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE4RDMzMTg2OTA4MTZBMkIKUldRcmFvR1FoakhUR0hncUtoakkwV0t4V2pEVU5jM1hXbGRiNVJQSUpXRGY1K1ZZaFkwNCs2RGkK",
+      "endpoints": ["https://github.com/codeXcn/Nidalee/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
