@@ -43,6 +43,11 @@ const router = createRouter({
       path: '/opgg',
       name: 'opgg',
       component: () => import('../views/OpggView.vue')
+    },
+    {
+      path: '/mayhem',
+      name: 'mayhem',
+      component: () => import('../views/MayhemCodexView.vue')
     }
   ]
 })

@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { Toaster } from 'vue-sonner'
 import 'vue-sonner/style.css'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { appContextKey } from './types'
 import ClientDisconnected from './components/common/ClientDisconnected.vue'
+import OverlayView from './views/OverlayView.vue'
+
+// 浮层窗口只渲染 OverlayView，不套主布局（侧栏/标题栏）
+const isOverlayWindow = getCurrentWindow().label === 'overlay'
 const { isDark, checkConnection, isConnected, fetchMatchHistory } = useApp()
 const theme = computed(() => (isDark.value ? 'dark' : 'light'))
 // 提供方法给子组件使用
@@ -25,7 +30,8 @@ const route = useRoute()
 </script>
 
 <template>
-  <div id="app" class="h-screen flex flex-col overflow-hidden bg-background">
+  <OverlayView v-if="isOverlayWindow" />
+  <div v-else id="app" class="h-screen flex flex-col overflow-hidden bg-background">
     <Toaster richColors :theme />
     <TitleBar />
     <template v-if="route.path === '/forbidden'">
