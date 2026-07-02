@@ -5,6 +5,7 @@ mod lcu;
 mod tray;
 mod common;
 mod data;
+mod overlay;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -13,6 +14,15 @@ pub fn run() {
             {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
+
+                // 浮层默认点击穿透，不拦截游戏内点击（深审 F4）
+                // 全局热键(Ctrl+Shift+T)留到 Windows 侧接入 tauri-plugin-global-shortcut——
+                // 该插件在 macOS 开发机与 tauri 2.10 stack 有依赖冲突且无法本机验证；
+                // v1 用 toggle_overlay_cmd 命令(前端按钮/托盘)切换。
+                use tauri::Manager;
+                if let Some(overlay_win) = app.get_webview_window(overlay::OVERLAY_LABEL) {
+                    let _ = overlay_win.set_ignore_cursor_events(true);
+                }
             }
             Ok(())
         })
@@ -71,6 +81,8 @@ pub fn run() {
             common::commands::builds::apply_champion_build,
             common::commands::mayhem::get_mayhem_champion,
             lcu::item_sets::commands::apply_mayhem_item_set,
+            overlay::toggle_overlay_cmd,
+            overlay::set_overlay_click_through,
             common::commands::game::launch_game,
             common::commands::game::detect_game_path,
             common::commands::game::select_game_path,
