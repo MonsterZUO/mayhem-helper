@@ -2,6 +2,10 @@
 
 > **本项目是 [Nidalee](https://github.com/codeXcn/Nidalee)（CC BY-NC-SA 4.0）的衍生作品**，专为**国服海克斯大乱斗（ARAM: Mayhem）**增加：游戏内浮层看海克斯优先级、客户端一键导入出装、离线速查库。遵循 CC BY-NC-SA 4.0（署名 + 非商用 + 同样式共享）。
 
+### 📥 下载 & 使用
+- **[下载安装包（Windows）](https://github.com/MonsterZUO/mayhem-helper/releases/latest)** — exe / msi 双击安装
+- **[📖 用户手册](./docs/user-manual.md)** — 怎么装、怎么用、常见问题（先看这个）
+
 **给 agent / 开发者**：动手前先读 [`CONTEXT.md`](./CONTEXT.md)（术语）、[`docs/target-effect.md`](./docs/target-effect.md)（目标效果）、[`docs/adr/`](./docs/adr)（关键决策）、[`docs/self-acceptance.md`](./docs/self-acceptance.md)（验收状态与 Windows 待验项）。
 
 **关键须知**：

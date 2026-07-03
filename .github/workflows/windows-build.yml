@@ -4,6 +4,10 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
   build-windows:

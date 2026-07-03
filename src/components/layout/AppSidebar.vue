@@ -131,7 +131,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { getVersion } from '@tauri-apps/api/app'
-import { Radar, BarChart3, Settings, Sparkles, TestTube, Swords, Trophy } from 'lucide-vue-next'
+import { Radar, BarChart3, Settings, Sparkles, TestTube, Swords, Trophy, Dices } from 'lucide-vue-next'
 import { useDataStore } from '@/stores/core/dataStore'
 import { useAppUpdater } from '@/composables/app/useAppUpdater'
 import { Progress } from '@/components/ui/progress'
@@ -163,6 +163,11 @@ const dataStore = useDataStore()
 const lolGameVersion = computed(() => dataStore.gameVersion)
 
 const menuItems = [
+  {
+    title: '海克斯大乱斗',
+    url: '/mayhem',
+    icon: Dices
+  },
   {
     title: '个人仪表盘',
     url: '/',
