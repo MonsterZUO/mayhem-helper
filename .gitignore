@@ -25,3 +25,4 @@ dist-ssr
 .env.*
 types/components.d.ts
 types/auto-imports.d.ts
+.gui_preview.png

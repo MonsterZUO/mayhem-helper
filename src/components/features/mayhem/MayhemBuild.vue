@@ -10,6 +10,8 @@ const props = defineProps<{
   data: MayhemChampion
   /** 紧凑模式（浮层用），减小间距。 */
   compact?: boolean
+  /** 隐藏来源/版本角标（外部已展示时用，避免重复）。 */
+  hideMeta?: boolean
 }>()
 
 const groups = computed(() => groupAugmentsByRarity(props.data.augments))
@@ -31,7 +33,7 @@ const rarityClass: Record<string, string> = {
 <template>
   <div class="flex flex-col" :class="compact ? 'gap-[10px]' : 'gap-[18px]'">
     <!-- 来源 / 版本 角标（数据地区代理透明标注，见 ADR-0001） -->
-    <div class="flex items-center justify-between text-[11px] text-foreground/50">
+    <div v-if="!hideMeta" class="flex items-center justify-between text-[11px] text-foreground/50">
       <span>数据来源 {{ data.source }} · 版本 {{ data.patch }}</span>
       <span>胜率 {{ pct(data.win_rate) }} · 登场 {{ pct(data.pick_rate) }}</span>
     </div>

@@ -64,9 +64,9 @@ export function groupAugmentsByRarity(augments: RankedAugment[]): Array<{ rarity
   })).filter((group) => group.items.length > 0)
 }
 
-/** 物品图标 URL（CommunityDragon）。 */
+/** 物品图标 URL（腾讯国服 CDN，国内访问快）。 */
 export function itemIconUrl(itemId: number): string {
-  return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/items/icons2d/${itemId}.png`
+  return `https://game.gtimg.cn/images/lol/act/img/item/${itemId}.png`
 }
 
 export function fetchMayhemChampion(championId: number): Promise<MayhemChampion> {

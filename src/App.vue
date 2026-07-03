@@ -7,7 +7,13 @@ import ClientDisconnected from './components/common/ClientDisconnected.vue'
 import OverlayView from './views/OverlayView.vue'
 
 // 浮层窗口只渲染 OverlayView，不套主布局（侧栏/标题栏）
-const isOverlayWindow = getCurrentWindow().label === 'overlay'
+// 非 Tauri 环境(如浏览器预览)取不到窗口，容错为非浮层
+let isOverlayWindow = false
+try {
+  isOverlayWindow = getCurrentWindow().label === 'overlay'
+} catch {
+  isOverlayWindow = false
+}
 const { isDark, checkConnection, isConnected, fetchMatchHistory } = useApp()
 const theme = computed(() => (isDark.value ? 'dark' : 'light'))
 // 提供方法给子组件使用
