@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { toast } from 'vue-sonner'
-import { Dices, Search, ExternalLink, PanelTopOpen, Loader2 } from 'lucide-vue-next'
+import { Dices, Search, ExternalLink, PanelTopOpen, Loader2, Sparkles } from 'lucide-vue-next'
+import { invoke } from '@tauri-apps/api/core'
 import ChampionSelector from '@/components/features/auto-function/ChampionSelector.vue'
 import MayhemBuild from '@/components/features/mayhem/MayhemBuild.vue'
 import { getChampionIconUrlByAlias } from '@/lib'
 import {
   useMayhemChampion,
+  useMayhemAugmentTiers,
   applyMayhemItemSet,
-  toggleOverlay
+  toggleOverlay,
+  rarityLabel
 } from '@/composables/mayhem/useMayhemData'
 
 interface ChampionSummary {
@@ -20,9 +23,21 @@ interface ChampionSummary {
 
 const selected = ref<ChampionSummary | null>(null)
 const importing = ref(false)
+const importingRunes = ref(false)
+const tab = ref<'champion' | 'tiers'>('champion')
 
 const championId = computed(() => selected.value?.id ?? null)
 const { data, isLoading, isError } = useMayhemChampion(championId)
+
+const tiersEnabled = computed(() => tab.value === 'tiers' && !selected.value)
+const { data: tiers, isLoading: tiersLoading } = useMayhemAugmentTiers(tiersEnabled)
+
+const rarityText: Record<string, string> = {
+  prismatic: 'text-[#e04ba0]',
+  gold: 'text-[#e0a72c]',
+  silver: 'text-[#9aa4b2]',
+  unknown: 'text-[#6b7280]'
+}
 
 function portrait(c: ChampionSummary): string {
   return c.alias ? getChampionIconUrlByAlias(c.alias) : ''
@@ -50,6 +65,23 @@ async function importItemSet() {
     toast.error(`导入失败: ${err}`)
   } finally {
     importing.value = false
+  }
+}
+
+async function importRunes() {
+  if (!selected.value?.alias) return
+  importingRunes.value = true
+  try {
+    // 复用既有符文导入（op.gg 数据源，取首个推荐符文页写入客户端）
+    const msg = await invoke<string>('apply_champion_build', {
+      championAlias: selected.value.alias,
+      buildIndex: 0
+    })
+    toast.success(msg)
+  } catch (err) {
+    toast.error(`符文导入失败: ${err}`)
+  } finally {
+    importingRunes.value = false
   }
 }
 
@@ -82,13 +114,54 @@ function pct(v: number): string {
       </div>
     </div>
 
-    <!-- 未选英雄：英雄选择器 -->
+    <!-- 未选英雄：tab 切换 选英雄 / 全局榜 -->
     <div v-if="!selected" class="rounded-[14px] border border-border/60 bg-card/40 p-[20px]">
-      <div class="mb-[14px] flex items-center gap-[8px] text-[13px] text-muted-foreground">
-        <Search class="h-[15px] w-[15px]" />
-        搜索并选择一个英雄，查看它的海克斯大乱斗推荐
+      <div class="mb-[14px] flex items-center gap-[8px]">
+        <button
+          class="h-[32px] rounded-[8px] px-[14px] text-[13px] font-[500] transition"
+          :class="tab === 'champion' ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-accent'"
+          @click="tab = 'champion'"
+        >查英雄</button>
+        <button
+          class="h-[32px] rounded-[8px] px-[14px] text-[13px] font-[500] transition"
+          :class="tab === 'tiers' ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-accent'"
+          @click="tab = 'tiers'"
+        >全局海克斯榜</button>
       </div>
-      <ChampionSelector @select="onSelect" />
+
+      <template v-if="tab === 'champion'">
+        <div class="mb-[14px] flex items-center gap-[8px] text-[13px] text-muted-foreground">
+          <Search class="h-[15px] w-[15px]" />
+          搜索并选择一个英雄，查看它的海克斯大乱斗推荐
+        </div>
+        <ChampionSelector @select="onSelect" />
+      </template>
+
+      <template v-else>
+        <div v-if="tiersLoading" class="flex items-center gap-[8px] py-[40px] justify-center text-[13px] text-muted-foreground">
+          <Loader2 class="h-[15px] w-[15px] animate-spin" /> 聚合 173 英雄数据中…
+        </div>
+        <div v-else-if="tiers" class="flex flex-col gap-[8px]">
+          <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>按对局数加权的全服胜率 · {{ tiers.source }} · 版本 {{ tiers.patch }}</span>
+            <span>{{ tiers.augments.length }} 个海克斯（≥500 局）</span>
+          </div>
+          <ul class="flex flex-col gap-[4px]">
+            <li
+              v-for="(aug, i) in tiers.augments.slice(0, 40)"
+              :key="aug.id"
+              class="flex items-center gap-[10px] rounded-[8px] border border-border/40 px-[10px] py-[6px]"
+            >
+              <span class="w-[26px] text-right text-[12px] tabular-nums text-muted-foreground">{{ i + 1 }}</span>
+              <img v-if="aug.icon_url" :src="aug.icon_url" :alt="aug.name" class="h-[24px] w-[24px] rounded-[4px]" loading="lazy" />
+              <span class="flex-1 truncate text-[13px] text-foreground/90">{{ aug.name }}</span>
+              <span class="w-[42px] text-[11px]" :class="rarityText[aug.rarity]">{{ rarityLabel(aug.rarity) }}</span>
+              <span class="w-[56px] text-right text-[13px] font-[500] tabular-nums text-foreground/90">{{ pct(aug.win_rate) }}</span>
+              <span class="w-[88px] text-right text-[11px] tabular-nums text-muted-foreground">{{ aug.num_games.toLocaleString() }} 局</span>
+            </li>
+          </ul>
+        </div>
+      </template>
     </div>
 
     <!-- 已选英雄 -->
@@ -124,6 +197,15 @@ function pct(v: number): string {
             <Loader2 v-if="importing" class="h-[15px] w-[15px] animate-spin" />
             <ExternalLink v-else class="h-[15px] w-[15px]" />
             {{ importing ? '导入中' : '导入出装' }}
+          </button>
+          <button
+            :disabled="importingRunes"
+            class="flex h-[36px] items-center gap-[6px] rounded-[9px] border border-primary/40 px-[14px] text-[13px] font-[500] text-primary transition hover:bg-primary/10 disabled:opacity-50"
+            @click="importRunes"
+          >
+            <Loader2 v-if="importingRunes" class="h-[15px] w-[15px] animate-spin" />
+            <Sparkles v-else class="h-[15px] w-[15px]" />
+            {{ importingRunes ? '导入中' : '导入符文' }}
           </button>
           <button
             class="flex h-[36px] items-center gap-[6px] rounded-[9px] border border-border/60 px-[14px] text-[13px] text-foreground/80 transition hover:bg-accent"

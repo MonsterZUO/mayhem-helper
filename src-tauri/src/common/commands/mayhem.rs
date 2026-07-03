@@ -220,6 +220,91 @@ fn parse_trio_key(key: &str) -> Option<[u32; 3]> {
     Some([a, b, c])
 }
 
+/// 全局海克斯榜单条目（跨英雄按对局数加权聚合）。
+#[derive(Debug, Clone, Serialize)]
+pub struct GlobalAugment {
+    pub id: u32,
+    pub name: String,
+    pub icon_url: String,
+    pub rarity: AugmentRarity,
+    /// 跨英雄按 num_games 加权的平均胜率。
+    pub win_rate: f64,
+    pub num_games: u64,
+    /// 出现在多少个英雄的数据里。
+    pub champion_count: u32,
+}
+
+/// 纯聚合：跨英雄 blob 汇总每个海克斯的加权胜率。可单测。
+pub fn aggregate_augment_tiers<'a>(
+    blobs: impl Iterator<Item = &'a Value>,
+    store: &AugmentMetaStore,
+    min_games: u64,
+) -> Vec<GlobalAugment> {
+    use std::collections::HashMap;
+    // id -> (加权胜率分子, 总局数, 英雄数)
+    let mut acc: HashMap<u32, (f64, u64, u32)> = HashMap::new();
+    for blob in blobs {
+        let Some(augs) = blob.get("augments").and_then(|v| v.as_object()) else {
+            continue;
+        };
+        for (id_str, stat) in augs {
+            let Ok(id) = id_str.parse::<u32>() else { continue };
+            let games = field_u64(stat, "num_games");
+            if games == 0 {
+                continue;
+            }
+            let wr = field_f64(stat, "win_rate");
+            let e = acc.entry(id).or_insert((0.0, 0, 0));
+            e.0 += wr * games as f64;
+            e.1 += games;
+            e.2 += 1;
+        }
+    }
+    let mut out: Vec<GlobalAugment> = acc
+        .into_iter()
+        .filter(|(_, (_, games, _))| *games >= min_games)
+        .map(|(id, (num, games, champs))| {
+            let meta = store.resolve(id);
+            GlobalAugment {
+                id,
+                name: meta.name,
+                icon_url: meta.icon_url,
+                rarity: meta.rarity,
+                win_rate: num / games as f64,
+                num_games: games,
+                champion_count: champs,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| b.win_rate.total_cmp(&a.win_rate));
+    out
+}
+
+/// 全局海克斯榜返回体。
+#[derive(Debug, Clone, Serialize)]
+pub struct MayhemAugmentTiers {
+    pub patch: String,
+    pub source: String,
+    pub augments: Vec<GlobalAugment>,
+}
+
+/// Tauri 命令：全局海克斯榜（基于打包快照 173 英雄本地聚合，不打网）。
+#[tauri::command]
+pub async fn get_mayhem_augment_tiers() -> Result<MayhemAugmentTiers, String> {
+    let client = reqwest::Client::new();
+    let store = match augment_store(&client).await {
+        Ok(s) => s,
+        Err(_) => EMPTY_AUGMENT_STORE.get_or_init(AugmentMetaStore::default),
+    };
+    // 样本过滤：全局榜只收 ≥500 局的海克斯，噪声档不进榜
+    snapshot::with_snapshot(|snap| MayhemAugmentTiers {
+        patch: snap.patch().to_string(),
+        source: format!("{}·出厂快照", DATA_SOURCE),
+        augments: aggregate_augment_tiers(snap.champions().map(|(_, v)| v), store, 500),
+    })
+    .ok_or_else(|| "出厂快照未载入，无法生成全局榜".to_string())
+}
+
 /// 获取（缓存）海克斯元数据表。
 async fn augment_store(client: &reqwest::Client) -> Result<&'static AugmentMetaStore, String> {
     // ponytail: 进程级缓存，cdragon 数据版本内稳定
@@ -340,6 +425,21 @@ mod tests {
         });
         let m = shape_mayhem(&data, "x", 5, &store(), 8);
         assert_eq!(m.trios[0].ids, [2, 2, 2], "同档按对局数降序");
+    }
+
+    #[test]
+    fn aggregates_weighted_across_champions() {
+        // 两英雄同一海克斯: (0.6*100 + 0.5*300)/400 = 0.525
+        let a = serde_json::json!({ "augments": { "2095": {"win_rate":"0.6","num_games":"100"} } });
+        let b = serde_json::json!({ "augments": { "2095": {"win_rate":"0.5","num_games":"300"},
+                                                   "1401": {"win_rate":"0.9","num_games":"10"} } });
+        let tiers = aggregate_augment_tiers([&a, &b].into_iter(), &store(), 50);
+        assert_eq!(tiers.len(), 1, "样本<50 的 1401 应被过滤");
+        assert_eq!(tiers[0].id, 2095);
+        assert!((tiers[0].win_rate - 0.525).abs() < 1e-9, "加权胜率错: {}", tiers[0].win_rate);
+        assert_eq!(tiers[0].num_games, 400);
+        assert_eq!(tiers[0].champion_count, 2);
+        assert_eq!(tiers[0].name, "掷骰狂人");
     }
 
     #[test]

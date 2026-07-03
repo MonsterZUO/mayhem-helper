@@ -90,6 +90,7 @@ pub fn run() {
             common::commands::builds::get_all_runes,
             common::commands::builds::apply_champion_build,
             common::commands::mayhem::get_mayhem_champion,
+            common::commands::mayhem::get_mayhem_augment_tiers,
             lcu::item_sets::commands::apply_mayhem_item_set,
             overlay::toggle_overlay_cmd,
             overlay::set_overlay_click_through,

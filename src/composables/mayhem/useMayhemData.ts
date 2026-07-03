@@ -88,6 +88,33 @@ export function toggleOverlay(): Promise<void> {
   return invoke<void>('toggle_overlay_cmd')
 }
 
+/** 全局海克斯榜条目（跨英雄加权聚合）。 */
+export interface GlobalAugment {
+  id: number
+  name: string
+  icon_url: string
+  rarity: AugmentRarity
+  win_rate: number
+  num_games: number
+  champion_count: number
+}
+
+export interface MayhemAugmentTiers {
+  patch: string
+  source: string
+  augments: GlobalAugment[]
+}
+
+/** 响应式取全局海克斯榜（本地快照聚合，秒回）。 */
+export function useMayhemAugmentTiers(enabled: MaybeRefOrGetter<boolean>) {
+  return useQuery({
+    queryKey: ['mayhem-augment-tiers'],
+    queryFn: () => invoke<MayhemAugmentTiers>('get_mayhem_augment_tiers'),
+    enabled: computed(() => toValue(enabled)),
+    staleTime: Infinity
+  })
+}
+
 /** 响应式取某英雄的海克斯大乱斗推荐。 */
 export function useMayhemChampion(championId: MaybeRefOrGetter<number | null>) {
   const cid = computed(() => toValue(championId))

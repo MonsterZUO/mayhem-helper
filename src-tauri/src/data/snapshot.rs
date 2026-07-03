@@ -44,6 +44,15 @@ impl SnapshotStore {
             .map(|blob| (blob.clone(), self.patch.clone()))
     }
 
+    /// 遍历全部英雄的 data blob（全局聚合用，借用不克隆）。
+    pub fn champions(&self) -> impl Iterator<Item = (&u32, &Value)> {
+        self.by_champion.iter()
+    }
+
+    pub fn patch(&self) -> &str {
+        &self.patch
+    }
+
     pub fn len(&self) -> usize {
         self.by_champion.len()
     }
@@ -67,6 +76,11 @@ pub fn init_snapshot(json: &str) {
 /// 从快照取某英雄数据（Blitz 不可达时的兜底）。
 pub fn snapshot_get(champion_id: u32) -> Option<(Value, String)> {
     SNAPSHOT.get().and_then(|store| store.get(champion_id))
+}
+
+/// 借用整个快照做聚合（避免克隆 14MB）。未载入返回 None。
+pub fn with_snapshot<T>(f: impl FnOnce(&SnapshotStore) -> T) -> Option<T> {
+    SNAPSHOT.get().map(f)
 }
 
 #[cfg(test)]
