@@ -1,0 +1,50 @@
+name: 🚀 Release (signed, auto-update)
+
+# 打 v* tag 时：Windows 云机器构建 + 签名 + 建 Release + 产出 latest.json（供自动更新）
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: 📥 Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: 🦀 Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: 🗄️ Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: 📦 Install deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: 🏗️ Build + sign + release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'MayhemHelper ${{ github.ref_name }} — 海克斯大乱斗助手'
+          releaseBody: '国服海克斯大乱斗(ARAM: Mayhem)助手。先看[用户手册](https://github.com/MonsterZUO/mayhem-helper/blob/main/docs/user-manual.md)。Windows 双击 setup.exe 安装。装了本版及以后的版本可自动接收更新提示。'
+          releaseDraft: false
+          prerelease: false
