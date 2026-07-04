@@ -39,6 +39,8 @@ pub struct RankedItem {
     pub win_rate: f64,
     pub pick_rate: f64,
     pub num_games: u64,
+    /// 平均购买顺位（0.7≈起始装，越大越靠后期），前端据此重建出装路线。
+    pub average_index: f64,
 }
 
 /// 三连海克斯组合。Blitz 对 trio 只给档位(tier 1-5, 1=最优)，不给具体胜率。
@@ -163,6 +165,7 @@ fn shape_items(items: Option<&Value>) -> Vec<RankedItem> {
                 win_rate: field_f64(stat, "win_rate"),
                 pick_rate: field_f64(stat, "pick_rate"),
                 num_games: field_u64(stat, "num_games"),
+                average_index: field_f64(stat, "average_index"),
             })
         })
         .collect()
@@ -457,6 +460,11 @@ mod tests {
         // Blitz win_rate 是字符串 "0.5"
         let m = shape_mayhem(&blitz_data(), "16.13", 5, &store(), 8);
         assert!(m.win_rate > 0.0 && m.win_rate < 1.0);
+        // average_index 真透出（购买顺位，出装路线的依据），防静默0
+        assert!(
+            m.core_items.iter().any(|i| i.average_index > 0.5),
+            "average_index 未透出"
+        );
     }
 
     #[test]

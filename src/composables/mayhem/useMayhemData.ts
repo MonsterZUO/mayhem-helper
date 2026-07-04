@@ -20,6 +20,44 @@ export interface RankedItem {
   win_rate: number
   pick_rate: number
   num_games: number
+  /** 平均购买顺位（0.7≈起始装，越大越后期） */
+  average_index: number
+}
+
+/** 鞋子物品 id（出装路线分组用） */
+const BOOTS_IDS = new Set([1001, 3005, 3006, 3009, 3010, 3020, 3047, 3111, 3117, 3158, 2422])
+
+/** op.gg 式出装路线：起始装 / 核心序列（按购买顺位）/ 鞋 / 其余选择表。 */
+export interface BuildRoute {
+  starters: RankedItem[]
+  core: RankedItem[]
+  boots: RankedItem | null
+  options: RankedItem[]
+}
+
+/** 纯函数：从扁平 items 重建出装路线（average_index=购买顺位）。 */
+export function buildRoute(items: RankedItem[]): BuildRoute {
+  const meaningful = items.filter((i) => i.num_games >= 30)
+  const byPick = [...meaningful].sort((a, b) => b.pick_rate - a.pick_rate)
+
+  const starters = byPick.filter((i) => i.average_index < 1.3 && !BOOTS_IDS.has(i.id)).slice(0, 2)
+  const bootsCandidates = byPick.filter((i) => BOOTS_IDS.has(i.id))
+  const boots = bootsCandidates[0] ?? null
+
+  const starterIds = new Set(starters.map((i) => i.id))
+  // 核心三件：选取率最高的非鞋非起始大件，按购买顺位排成序列
+  const core = byPick
+    .filter((i) => !BOOTS_IDS.has(i.id) && !starterIds.has(i.id) && i.average_index >= 1.3)
+    .slice(0, 3)
+    .sort((a, b) => a.average_index - b.average_index)
+
+  const usedIds = new Set([...starterIds, ...(boots ? [boots.id] : []), ...core.map((i) => i.id)])
+  const options = [...meaningful]
+    .filter((i) => !usedIds.has(i.id) && !BOOTS_IDS.has(i.id))
+    .sort((a, b) => b.win_rate - a.win_rate)
+    .slice(0, 8)
+
+  return { starters, core, boots, options }
 }
 
 export interface AugmentTrio {
@@ -67,6 +105,24 @@ export function groupAugmentsByRarity(augments: RankedAugment[]): Array<{ rarity
 /** 物品图标 URL（腾讯国服 CDN，国内访问快）。 */
 export function itemIconUrl(itemId: number): string {
   return `https://game.gtimg.cn/images/lol/act/img/item/${itemId}.png`
+}
+
+/** 物品 id→中文名映射（ddragon zh_CN，进程内缓存）。 */
+export function useItemNames() {
+  return useQuery({
+    queryKey: ['item-names-zh'],
+    queryFn: async () => {
+      const { fetchItems } = await import('@/lib/dataApi')
+      const res = await fetchItems()
+      const map = new Map<number, string>()
+      const data = (res.data as { data?: Record<string, { name?: string }> })?.data ?? {}
+      for (const [id, item] of Object.entries(data)) {
+        if (item?.name) map.set(Number(id), item.name)
+      }
+      return map
+    },
+    staleTime: Infinity
+  })
 }
 
 export function fetchMayhemChampion(championId: number): Promise<MayhemChampion> {
