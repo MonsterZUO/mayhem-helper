@@ -81,7 +81,18 @@
         <GitHubStarButtonBeautiful />
       </div>
 
-      <div class="px-2 text-xs text-muted-foreground select-none">软件版本 {{ `v${appVersion}` || '-' }}</div>
+      <div class="px-2 text-xs text-muted-foreground select-none flex items-center gap-2">
+        <span>软件版本 {{ appVersion ? `v${appVersion}` : '-' }}</span>
+        <button
+          class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-primary hover:bg-primary/10 transition disabled:opacity-50"
+          :disabled="isUpdating"
+          title="检查更新并自动下载安装"
+          @click="checkAppUpdate({ silent: false })"
+        >
+          <RefreshCw class="h-3 w-3" :class="isUpdating ? 'animate-spin' : ''" />
+          检查更新
+        </button>
+      </div>
 
       <div class="px-2 text-xs text-muted-foreground select-none">游戏版本 {{ `v${lolGameVersion}` || '-' }}</div>
 
@@ -131,13 +142,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { getVersion } from '@tauri-apps/api/app'
-import { Radar, BarChart3, Settings, Sparkles, TestTube, Swords, Trophy, Dices } from 'lucide-vue-next'
+import { Radar, BarChart3, Settings, Sparkles, TestTube, Swords, Trophy, Dices, RefreshCw } from 'lucide-vue-next'
 import { useDataStore } from '@/stores/core/dataStore'
 import { useAppUpdater } from '@/composables/app/useAppUpdater'
 import { Progress } from '@/components/ui/progress'
 const route = useRoute()
 // 组合式方式获取更新状态与方法（内部是单例，不会重复实例化）
-const { updateAvailable, updateVersion, isUpdating, updateProgress, startUpdateNow } = useAppUpdater()
+const { updateAvailable, updateVersion, isUpdating, updateProgress, startUpdateNow, checkAppUpdate } = useAppUpdater()
 
 // 动态状态文案：0% -> 正在连接…；1-99% -> 正在下载…N%；100% -> 正在安装/准备重启
 const updateStatusText = computed(() => {
