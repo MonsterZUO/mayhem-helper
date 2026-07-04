@@ -74,7 +74,8 @@
       "tsp": false,
       "wix": {
         "language": "zh-CN"
-      }
+      },
+      "allowDowngrades": true
     }
   },
   "plugins": {
