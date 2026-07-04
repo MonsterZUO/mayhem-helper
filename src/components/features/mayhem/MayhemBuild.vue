@@ -2,12 +2,11 @@
 import { computed, ref } from 'vue'
 import { ChevronDown, ChevronRight, MoveRight } from 'lucide-vue-next'
 import {
-  groupAugmentsByRarity,
   itemIconUrl,
   buildRoute,
   useItemNames,
   type MayhemChampion,
-  type RankedItem
+  type AugmentRarity
 } from '@/composables/mayhem/useMayhemData'
 
 const props = defineProps<{
@@ -18,17 +17,25 @@ const props = defineProps<{
   hideMeta?: boolean
 }>()
 
-const groups = computed(() => groupAugmentsByRarity(props.data.augments))
 const route = computed(() => buildRoute(props.data.core_items))
 const topTrios = computed(() => props.data.trios.slice(0, props.compact ? 3 : 5))
 const { data: itemNames } = useItemNames()
 
-// 海克斯每档默认只展示 top N，展开看全部（罗列过长不可用）
-const PREVIEW_COUNT = computed(() => (props.compact ? 3 : 4))
-const expanded = ref<Record<string, boolean>>({})
-function toggleExpand(rarity: string) {
-  expanded.value[rarity] = !expanded.value[rarity]
-}
+// 海克斯三列并排(每列一个档位——实战三选一同档位, 在档内比较)；列内按胜率, top N + 统一展开
+const PREVIEW_COUNT = computed(() => (props.compact ? 5 : 10))
+const augExpanded = ref(false)
+const RARITY_COLS: Array<{ key: AugmentRarity; label: string }> = [
+  { key: 'prismatic', label: '棱彩' },
+  { key: 'gold', label: '黄金' },
+  { key: 'silver', label: '白银' }
+]
+const augmentColumns = computed(() =>
+  RARITY_COLS.map((col) => ({
+    ...col,
+    items: props.data.augments.filter((a) => a.rarity === col.key)
+  }))
+)
+const maxColLength = computed(() => Math.max(0, ...augmentColumns.value.map((c) => c.items.length)))
 
 function itemName(id: number): string {
   return itemNames.value?.get(id) ?? String(id)
@@ -44,23 +51,10 @@ const rarityDot: Record<string, string> = {
   白银: 'bg-[#64748b] dark:bg-[#9aa4b2]',
   未知: 'bg-[#6b7280]'
 }
-const rarityText: Record<string, string> = {
+const rarityHead: Record<string, string> = {
   棱彩: 'text-[#a21caf] dark:text-[#e04ba0]',
   黄金: 'text-[#a16207] dark:text-[#e0a72c]',
-  白银: 'text-[#64748b] dark:text-[#9aa4b2]',
-  未知: 'text-[#6b7280]'
-}
-const rarityBar: Record<string, string> = {
-  棱彩: 'bg-[#a21caf]/50 dark:bg-[#e04ba0]/50',
-  黄金: 'bg-[#a16207]/50 dark:bg-[#e0a72c]/50',
-  白银: 'bg-[#64748b]/50 dark:bg-[#9aa4b2]/50',
-  未知: 'bg-[#6b7280]/50'
-}
-
-/** 胜率条宽度：40%~70% 映射 0~100%，差异放大可辨。 */
-function barWidth(winRate: number): string {
-  const w = Math.max(0, Math.min(1, (winRate - 0.4) / 0.3))
-  return `${Math.round(w * 100)}%`
+  白银: 'text-[#64748b] dark:text-[#9aa4b2]'
 }
 </script>
 
@@ -137,43 +131,36 @@ function barWidth(winRate: number): string {
       </ul>
     </section>
 
-    <!-- ═══ 海克斯优先级：每档 top N + 展开，胜率条 ═══ -->
-    <section v-for="group in groups" :key="group.rarity" class="flex flex-col gap-[5px]">
-      <div class="flex items-center gap-[6px]">
-        <span class="h-[8px] w-[8px] rounded-full" :class="rarityDot[group.label]" />
-        <span class="text-[13px] font-[600]" :class="rarityText[group.label]">{{ group.label }}海克斯</span>
-        <span class="text-[11px] text-muted-foreground">{{ group.items.length }} 个</span>
-      </div>
-      <ul class="flex flex-col gap-[3px]">
-        <li
-          v-for="aug in expanded[group.rarity] ? group.items : group.items.slice(0, PREVIEW_COUNT)"
-          :key="aug.id"
-          class="relative flex items-center gap-[8px] overflow-hidden rounded-[7px] bg-accent/25 px-[8px] py-[4px]"
-        >
-          <!-- 胜率条背景 -->
+    <!-- ═══ 海克斯：三列并排(棱彩|黄金|白银)，列内按胜率——实战三选一同档位 ═══ -->
+    <section class="flex flex-col gap-[6px]">
+      <div class="text-[13px] font-[600] text-foreground/80">海克斯排行（胜率 · 选取率）</div>
+      <div class="grid grid-cols-3" :class="compact ? 'gap-[8px]' : 'gap-[14px]'">
+        <div v-for="col in augmentColumns" :key="col.key" class="flex min-w-0 flex-col gap-[4px]">
+          <div class="flex items-center gap-[5px] border-b border-border/50 pb-[4px]">
+            <span class="h-[8px] w-[8px] rounded-full" :class="rarityDot[col.label]" />
+            <span class="text-[12.5px] font-[600]" :class="rarityHead[col.label]">{{ col.label }}</span>
+            <span class="text-[11px] text-muted-foreground">{{ col.items.length }}</span>
+          </div>
           <div
-            class="absolute inset-y-0 left-0 opacity-25"
-            :class="rarityBar[group.label]"
-            :style="{ width: barWidth(aug.win_rate) }"
-          />
-          <img
-            v-if="aug.icon_url"
-            :src="aug.icon_url"
-            :alt="aug.name"
-            class="relative h-[22px] w-[22px] rounded-[4px]"
-            loading="lazy"
-          />
-          <span class="relative flex-1 truncate text-[12.5px] text-foreground/90">{{ aug.name }}</span>
-          <span class="relative text-[12px] font-[500] tabular-nums text-foreground/85">{{ pct(aug.win_rate) }}</span>
-        </li>
-      </ul>
+            v-for="aug in augExpanded ? col.items : col.items.slice(0, PREVIEW_COUNT)"
+            :key="aug.id"
+            class="flex items-center gap-[6px] rounded-[6px] px-[4px] py-[3px] hover:bg-accent/40"
+            :title="`${aug.name} · 胜率 ${pct(aug.win_rate)} · 选取 ${pct(aug.pick_rate)}`"
+          >
+            <img v-if="aug.icon_url" :src="aug.icon_url" :alt="aug.name" class="h-[20px] w-[20px] shrink-0 rounded-[4px]" loading="lazy" />
+            <span class="min-w-0 flex-1 truncate text-[12px] text-foreground/90">{{ aug.name }}</span>
+            <span class="shrink-0 text-[12px] font-[500] tabular-nums text-foreground/90">{{ pct(aug.win_rate) }}</span>
+            <span v-if="!compact" class="hidden shrink-0 text-[10.5px] tabular-nums text-muted-foreground lg:inline">{{ pct(aug.pick_rate) }}</span>
+          </div>
+        </div>
+      </div>
       <button
-        v-if="group.items.length > PREVIEW_COUNT"
+        v-if="maxColLength > PREVIEW_COUNT"
         class="flex items-center gap-[3px] self-start rounded px-[6px] py-[2px] text-[11px] text-muted-foreground hover:bg-accent/40 hover:text-foreground"
-        @click="toggleExpand(group.rarity)"
+        @click="augExpanded = !augExpanded"
       >
-        <component :is="expanded[group.rarity] ? ChevronDown : ChevronRight" class="h-[12px] w-[12px]" />
-        {{ expanded[group.rarity] ? '收起' : `展开全部 ${group.items.length} 个` }}
+        <component :is="augExpanded ? ChevronDown : ChevronRight" class="h-[12px] w-[12px]" />
+        {{ augExpanded ? '收起' : '展开全部' }}
       </button>
     </section>
 
