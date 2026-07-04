@@ -44,7 +44,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen overflow-y-auto bg-black/80 p-[12px] text-white backdrop-blur-sm">
+  <!-- 浮层恒定深色（不跟系统主题）：叠加在游戏画面上，深底半透明才可读 -->
+  <div class="dark h-screen w-screen overflow-y-auto bg-black/80 p-[12px] text-white backdrop-blur-sm">
     <div v-if="championId && data">
       <!-- 当前英雄头行：让玩家一眼知道浮层对应谁 -->
       <div class="mb-[10px] flex items-center gap-[8px] border-b border-white/15 pb-[8px]">

@@ -22,10 +22,11 @@ function pct(v: number): string {
   return `${(v * 100).toFixed(1)}%`
 }
 
+// 稀有度色分明暗两套：浅色底用深变体保对比度，深色底用原亮色
 const rarityClass: Record<string, string> = {
-  棱彩: 'text-[#e04ba0] border-[#e04ba0]/40',
-  黄金: 'text-[#e0a72c] border-[#e0a72c]/40',
-  白银: 'text-[#9aa4b2] border-[#9aa4b2]/40',
+  棱彩: 'text-[#a21caf] border-[#a21caf]/40 dark:text-[#e04ba0] dark:border-[#e04ba0]/40',
+  黄金: 'text-[#a16207] border-[#a16207]/40 dark:text-[#e0a72c] dark:border-[#e0a72c]/40',
+  白银: 'text-[#64748b] border-[#64748b]/40 dark:text-[#9aa4b2] dark:border-[#9aa4b2]/40',
   未知: 'text-[#6b7280] border-[#6b7280]/40'
 }
 </script>

@@ -32,10 +32,11 @@ const { data, isLoading, isError } = useMayhemChampion(championId)
 const tiersEnabled = computed(() => tab.value === 'tiers' && !selected.value)
 const { data: tiers, isLoading: tiersLoading } = useMayhemAugmentTiers(tiersEnabled)
 
+// 稀有度色分明暗两套（同 MayhemBuild）
 const rarityText: Record<string, string> = {
-  prismatic: 'text-[#e04ba0]',
-  gold: 'text-[#e0a72c]',
-  silver: 'text-[#9aa4b2]',
+  prismatic: 'text-[#a21caf] dark:text-[#e04ba0]',
+  gold: 'text-[#a16207] dark:text-[#e0a72c]',
+  silver: 'text-[#64748b] dark:text-[#9aa4b2]',
   unknown: 'text-[#6b7280]'
 }
 

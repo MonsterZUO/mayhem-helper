@@ -9,6 +9,8 @@ export const useSettingsStore = defineStore(
     const selectedRadius = ref(0.5)
     const selectedStyle = ref('new-york')
     const isDark = ref(false)
+    // 主题模式：system=跟随系统明暗(默认) / light / dark=用户显式固定
+    const themeMode = ref<'system' | 'light' | 'dark'>('system')
 
     // 应用设置
     const autoStart = ref(false)
@@ -63,9 +65,17 @@ export const useSettingsStore = defineStore(
       selectedStyle.value = styleName
     }
 
-    // 切换主题
+    // 切换主题（用户显式选择，固定不再跟随系统）
     const toggleTheme = (newValue: boolean) => {
+      themeMode.value = newValue ? 'dark' : 'light'
       isDark.value = newValue
+      setThemeClass(selectedColor.value, isDark.value)
+    }
+
+    // 跟随系统明暗
+    const followSystemTheme = () => {
+      themeMode.value = 'system'
+      isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
       setThemeClass(selectedColor.value, isDark.value)
     }
 
@@ -81,19 +91,11 @@ export const useSettingsStore = defineStore(
 
     // 初始化主题
     const initTheme = () => {
-      // 检查系统主题偏好（仅在首次访问且无持久化数据时）
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-      // 如果当前 isDark 为 false 且系统偏好暗色主题，则使用系统偏好
-      // 这只在首次访问应用时生效，后续以用户设置为准
-      if (!isDark.value && mediaQuery.matches) {
-        // 检查是否是首次访问（通过检查是否有持久化的主题配置）
-        const hasPersistedTheme =
-          selectedColor.value !== 'neutral' || selectedRadius.value !== 0.5 || selectedStyle.value !== 'new-york'
-
-        if (!hasPersistedTheme) {
-          isDark.value = true
-        }
+      // system 模式：启动即对齐系统明暗；light/dark 模式：尊重用户固定选择
+      if (themeMode.value === 'system') {
+        isDark.value = mediaQuery.matches
       }
 
       // 应用当前状态到 DOM
@@ -102,10 +104,12 @@ export const useSettingsStore = defineStore(
       // 应用圆角设置
       document.documentElement.style.setProperty('--radius', `${selectedRadius.value}rem`)
 
-      // 监听系统主题变化（仅作为参考，不强制覆盖用户设置）
+      // 系统明暗变化：仅 system 模式实时跟随
       mediaQuery.addEventListener('change', (e) => {
-        console.log('[SettingsStore] 系统主题偏好变化:', e.matches ? 'dark' : 'light')
-        // 这里可以选择是否要跟随系统主题，当前保持用户设置
+        if (themeMode.value === 'system') {
+          isDark.value = e.matches
+          setThemeClass(selectedColor.value, isDark.value)
+        }
       })
     }
 
@@ -224,6 +228,7 @@ export const useSettingsStore = defineStore(
       selectedRadius,
       selectedStyle,
       isDark,
+      themeMode,
 
       // 主题选项（从配置文件导入）
       colors,
@@ -252,6 +257,7 @@ export const useSettingsStore = defineStore(
       setRadius,
       setStyle,
       toggleTheme,
+      followSystemTheme,
       resetTheme,
       initTheme,
 

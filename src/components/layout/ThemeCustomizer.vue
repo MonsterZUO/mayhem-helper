@@ -75,7 +75,19 @@
           :class="
             cn(
               'flex items-center rounded-lg gap-1 border text-sm font-medium transition-co duration-150  border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground px-4 py-2 h-8',
-              !settingsStore.isDark ? 'border-primary shadow' : 'border-muted hover:border-primary/40  '
+              settingsStore.themeMode === 'system' ? 'border-primary shadow' : 'border-muted hover:border-primary/40  '
+            )
+          "
+          @click="() => settingsStore.followSystemTheme()"
+          type="button"
+        >
+          <Monitor class="w-4 h-4" /> 跟随系统
+        </button>
+        <button
+          :class="
+            cn(
+              'flex items-center rounded-lg gap-1 border text-sm font-medium transition-co duration-150  border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground px-4 py-2 h-8',
+              settingsStore.themeMode === 'light' ? 'border-primary shadow' : 'border-muted hover:border-primary/40  '
             )
           "
           @click="() => settingsStore.toggleTheme(false)"
@@ -87,7 +99,7 @@
           :class="
             cn(
               'flex items-center rounded-lg gap-1  border text-sm font-medium transition-co duration-150  border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground px-4 py-2 h-8',
-              settingsStore.isDark ? 'border-primary  shadow  ' : 'border-muted hover:border-primary/40  '
+              settingsStore.themeMode === 'dark' ? 'border-primary  shadow  ' : 'border-muted hover:border-primary/40  '
             )
           "
           @click="() => settingsStore.toggleTheme(true)"
@@ -97,7 +109,10 @@
         </button>
       </div>
       <div class="text-xs text-muted-foreground mt-1">
-        当前状态: <span class="font-semibold">{{ settingsStore.isDark ? '深色' : '浅色' }}</span>
+        当前状态:
+        <span class="font-semibold">
+          {{ settingsStore.themeMode === 'system' ? '跟随系统 · ' : '' }}{{ settingsStore.isDark ? '深色' : '浅色' }}
+        </span>
         <span class="mx-2">|</span>
         HTML类:
         <span :class="htmlHasDarkClass ? 'text-green-500' : 'text-red-400'">{{
@@ -133,7 +148,7 @@
 <script setup lang="ts">
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/ui/settingsStore'
-import { RotateCcw, Sun, Moon } from 'lucide-vue-next'
+import { RotateCcw, Sun, Moon, Monitor } from 'lucide-vue-next'
 import { ref, onMounted } from 'vue'
 
 const settingsStore = useSettingsStore()
