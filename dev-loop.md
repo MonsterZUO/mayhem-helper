@@ -21,7 +21,9 @@ docs/adr 决策；数据驱动，不做人工评级类功能。
    - 读上一轮 record（`docs/loop-records/dev-*.md` 最新一份）
    - `git -C <仓根> worktree list`（现存开发 worktree）
 2. **按优先级选一个单元**（从上往下命中即做，只做这一个）：
-   - **A 合入已批 PR**：某 loop-dev PR `reviewDecision=APPROVED` →
+   - **A 合入已批 PR**：某 loop-dev PR 已获批——判据：用户在会话中明确说批了，
+     或 PR 有用户的批准评论（GitHub 不允许 approve 自己的 PR，`reviewDecision`
+     对本仓恒为空，不能当判据）→
      squash merge（`gh pr merge --squash --delete-branch`）→ 确认 issue 被
      `Closes #N` 自动关闭 → `git worktree remove` 清理 → 摘 `in-dev` label。
    - **B 响应 review 意见**：某 loop-dev PR 有未解决的 changes-requested/评论 →
