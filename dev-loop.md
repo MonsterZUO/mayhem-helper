@@ -44,7 +44,8 @@ docs/adr 决策；数据驱动，不做人工评级类功能。
 
 ## VERIFY（能说不的 gate，全绿才 push/merge）
 
-在 worktree 内依次跑，任一红即本单元失败：
+在 worktree 内依次跑，任一红即本单元失败。**每条命令核 exit code**——
+grep 过滤计数不得单独当结论（踩过：没装依赖时命令整体失败，grep 不到 error 误报全绿）：
 
 - `pnpm type-check`（vue-tsc）
 - `pnpm lint`（oxlint + eslint，error 必清，不用 any/eslint-disable 绕；
