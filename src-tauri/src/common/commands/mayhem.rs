@@ -308,6 +308,95 @@ pub async fn get_mayhem_augment_tiers() -> Result<MayhemAugmentTiers, String> {
     .ok_or_else(|| "出厂快照未载入，无法生成全局榜".to_string())
 }
 
+/// 海克斯详情里的单英雄战绩条目。
+#[derive(Debug, Clone, Serialize)]
+pub struct AugmentChampionEntry {
+    pub champion_id: u32,
+    pub win_rate: f64,
+    pub pick_rate: f64,
+    pub num_games: u64,
+}
+
+/// 海克斯详情返回体（反向索引：海克斯 → 适配英雄排行）。
+#[derive(Debug, Clone, Serialize)]
+pub struct MayhemAugmentDetail {
+    pub id: u32,
+    pub name: String,
+    pub icon_url: String,
+    pub rarity: AugmentRarity,
+    pub patch: String,
+    pub source: String,
+    /// 入榜的单英雄最小局数门槛。
+    pub min_games: u64,
+    /// 因样本不足被过滤的英雄数（如实展示覆盖面）。
+    pub filtered_out: u32,
+    /// 按胜率降序。
+    pub champions: Vec<AugmentChampionEntry>,
+}
+
+/// 纯聚合：跨英雄 blob 提取某海克斯的分英雄战绩，按胜率降序。可单测。
+/// 返回 (入榜条目, 因样本不足被过滤的英雄数)。
+pub fn aggregate_augment_detail<'a>(
+    blobs: impl Iterator<Item = (&'a u32, &'a Value)>,
+    augment_id: u32,
+    min_games: u64,
+) -> (Vec<AugmentChampionEntry>, u32) {
+    let key = augment_id.to_string();
+    let mut out = Vec::new();
+    let mut filtered_out = 0u32;
+    for (champion_id, blob) in blobs {
+        let Some(stat) = blob.get("augments").and_then(|v| v.get(&key)) else {
+            continue;
+        };
+        let num_games = field_u64(stat, "num_games");
+        if num_games == 0 {
+            continue;
+        }
+        if num_games < min_games {
+            filtered_out += 1;
+            continue;
+        }
+        out.push(AugmentChampionEntry {
+            champion_id: *champion_id,
+            win_rate: field_f64(stat, "win_rate"),
+            pick_rate: field_f64(stat, "pick_rate"),
+            num_games,
+        });
+    }
+    out.sort_by(|a, b| b.win_rate.total_cmp(&a.win_rate));
+    (out, filtered_out)
+}
+
+/// 详情榜单英雄最小局数门槛（低于此样本噪声大，过滤并计数展示）。
+const AUGMENT_DETAIL_MIN_GAMES: u64 = 50;
+
+/// Tauri 命令：海克斯详情（快照反向聚合：该海克斯在哪些英雄身上胜率最高）。
+#[tauri::command]
+pub async fn get_mayhem_augment_detail(augment_id: u32) -> Result<MayhemAugmentDetail, String> {
+    let client = reqwest::Client::new();
+    let store = match augment_store(&client).await {
+        Ok(s) => s,
+        Err(_) => EMPTY_AUGMENT_STORE.get_or_init(AugmentMetaStore::default),
+    };
+    snapshot::with_snapshot(|snap| {
+        let meta = store.resolve(augment_id);
+        let (champions, filtered_out) =
+            aggregate_augment_detail(snap.champions(), augment_id, AUGMENT_DETAIL_MIN_GAMES);
+        MayhemAugmentDetail {
+            id: augment_id,
+            name: meta.name,
+            icon_url: meta.icon_url,
+            rarity: meta.rarity,
+            patch: snap.patch().to_string(),
+            source: format!("{}·出厂快照", DATA_SOURCE),
+            min_games: AUGMENT_DETAIL_MIN_GAMES,
+            filtered_out,
+            champions,
+        }
+    })
+    .ok_or_else(|| "出厂快照未载入，无法生成海克斯详情".to_string())
+}
+
 /// 获取（缓存）海克斯元数据表。
 async fn augment_store(client: &reqwest::Client) -> Result<&'static AugmentMetaStore, String> {
     // ponytail: 进程级缓存，cdragon 数据版本内稳定
@@ -443,6 +532,31 @@ mod tests {
         assert_eq!(tiers[0].num_games, 400);
         assert_eq!(tiers[0].champion_count, 2);
         assert_eq!(tiers[0].name, "掷骰狂人");
+    }
+
+    #[test]
+    fn augment_detail_sorted_filtered_and_counted() {
+        let a = serde_json::json!({ "augments": { "2095": {"win_rate":"0.5","pick_rate":"0.1","num_games":"100"} } });
+        let b = serde_json::json!({ "augments": { "2095": {"win_rate":"0.6","pick_rate":"0.2","num_games":"80"} } });
+        let c = serde_json::json!({ "augments": { "2095": {"win_rate":"0.9","num_games":"10"} } }); // 样本不足
+        let d = serde_json::json!({ "augments": { "1401": {"win_rate":"0.9","num_games":"100"} } }); // 其他海克斯
+        let (id1, id2, id3, id4) = (1u32, 2u32, 3u32, 4u32);
+        let blobs = [(&id1, &a), (&id2, &b), (&id3, &c), (&id4, &d)];
+        let (list, filtered) = aggregate_augment_detail(blobs.into_iter(), 2095, 50);
+        assert_eq!(list.len(), 2, "仅两英雄过门槛");
+        assert_eq!(list[0].champion_id, 2, "0.6 胜率应排最前");
+        assert!((list[0].win_rate - 0.6).abs() < 1e-9);
+        assert_eq!(list[1].champion_id, 1);
+        assert_eq!(filtered, 1, "样本不足的英雄计入 filtered_out");
+    }
+
+    #[test]
+    fn augment_detail_absent_augment_empty() {
+        let a = serde_json::json!({ "augments": { "2095": {"win_rate":"0.5","num_games":"100"} } });
+        let id = 1u32;
+        let (list, filtered) = aggregate_augment_detail([(&id, &a)].into_iter(), 99999, 50);
+        assert!(list.is_empty());
+        assert_eq!(filtered, 0);
     }
 
     #[test]
