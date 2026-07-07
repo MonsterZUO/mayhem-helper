@@ -4,7 +4,7 @@
       <Search class="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
       <Input
         v-model="searchText"
-        placeholder="搜索英雄名称或别名..."
+        placeholder="搜索英雄名称、称号或俗称（如 金克丝 / 暴走萝莉 / 火男）..."
         class="text-foreground pl-12 h-12 text-base bg-background/50 border-border/50 focus:border-primary/50 focus:bg-background transition-all duration-200 shadow-sm focus:shadow-md"
       />
       <div v-if="searchText" class="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -80,9 +80,9 @@
               <div class="w-full text-center mt-2">
                 <span
                   class="text-xs text-foreground font-medium leading-tight inline-block w-full overflow-hidden text-ellipsis whitespace-nowrap group-hover:text-primary transition-colors duration-200"
-                  :title="champion.name"
+                  :title="champion.description ? `${champion.name}·${champion.description}` : champion.name"
                 >
-                  {{ champion.name }}
+                  {{ champion.description ? `${champion.name}·${champion.description}` : champion.name }}
                 </span>
               </div>
             </div>
@@ -109,6 +109,7 @@
 
 <script setup lang="ts">
 import { getChampionIconUrlByAlias } from '@/lib'
+import { nicknameMatches } from '@/lib/championNicknames'
 import { fetchChampionSummary } from '@/lib/dataApi'
 import { Search, X } from 'lucide-vue-next'
 
@@ -129,11 +130,13 @@ const filteredChampions = computed(() => {
   }
 
   const search = searchText.value.toLowerCase()
+  // name=称号(暴走萝莉)、description=正式名(金克丝)——champion-summary zh_cn 的字段语义如此
   return champions.value.filter(
     (champion) =>
       champion.name.toLowerCase().includes(search) ||
       champion.alias.toLowerCase().includes(search) ||
-      (champion.description && champion.description.toLowerCase().includes(search))
+      (champion.description && champion.description.toLowerCase().includes(search)) ||
+      nicknameMatches(champion.alias, search)
   )
 })
 
