@@ -18,7 +18,10 @@ import {
 
 interface ChampionSummary {
   id: number
+  /** champion-summary zh_cn 语义：name=称号（暴走萝莉） */
   name: string
+  /** description=正式名（金克丝） */
+  description?: string
   alias?: string
   squarePortraitPath?: string
 }
@@ -33,6 +36,15 @@ const { data, isLoading, isError } = useMayhemChampion(championId)
 
 const tiersEnabled = computed(() => tab.value === 'tiers' && !selected.value)
 const { data: tiers, isLoading: tiersLoading } = useMayhemAugmentTiers(tiersEnabled)
+
+// 全局榜海克斯中文名过滤（无输入时保持 top40 截断，有输入时全量搜）
+const augmentSearch = ref('')
+const filteredTierAugments = computed(() => {
+  const all = tiers.value?.augments ?? []
+  const s = augmentSearch.value.trim().toLowerCase()
+  if (!s) return all.slice(0, 40)
+  return all.filter((a) => a.name.toLowerCase().includes(s))
+})
 
 // 海克斯详情（反向索引：全局榜点击进入）
 const selectedAugmentId = ref<number | null>(null)
@@ -238,9 +250,20 @@ function pct(v: number): string {
               <span>按对局数加权的全服胜率 · {{ tiers.source }} · 版本 {{ tiers.patch }} · 点击查看适配英雄</span>
               <span>{{ tiers.augments.length }} 个海克斯（≥500 局）</span>
             </div>
+            <input
+              v-model="augmentSearch"
+              placeholder="搜索海克斯中文名…"
+              class="h-[32px] rounded-[8px] border border-border/60 bg-background/50 px-[10px] text-[13px] text-foreground outline-none transition focus:border-primary/50"
+            />
+            <div
+              v-if="augmentSearch.trim() && !filteredTierAugments.length"
+              class="py-[20px] text-center text-[13px] text-muted-foreground"
+            >
+              没有匹配的海克斯
+            </div>
             <ul class="flex flex-col gap-[4px]">
               <li
-                v-for="(aug, i) in tiers.augments.slice(0, 40)"
+                v-for="(aug, i) in filteredTierAugments"
                 :key="aug.id"
                 class="flex cursor-pointer items-center gap-[10px] rounded-[8px] border border-border/40 px-[10px] py-[6px] transition hover:bg-accent"
                 @click="selectedAugmentId = aug.id"
@@ -280,7 +303,9 @@ function pct(v: number): string {
         />
         <div class="flex-1">
           <div class="flex items-center gap-[10px]">
-            <span class="text-[18px] font-[600] text-foreground">{{ selected.name }}</span>
+            <span class="text-[18px] font-[600] text-foreground">{{
+              selected.description ? `${selected.name}·${selected.description}` : selected.name
+            }}</span>
             <span v-if="data" class="rounded-[6px] bg-primary/12 px-[8px] py-[2px] text-[12px] font-[500] text-primary"
               >胜率 {{ pct(data.win_rate) }}</span
             >

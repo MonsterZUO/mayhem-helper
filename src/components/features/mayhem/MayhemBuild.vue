@@ -29,12 +29,15 @@ const RARITY_COLS: Array<{ key: AugmentRarity; label: string }> = [
   { key: 'gold', label: '黄金' },
   { key: 'silver', label: '白银' }
 ]
-const augmentColumns = computed(() =>
-  RARITY_COLS.map((col) => ({
+// 海克斯中文名过滤（速查场景：只看某个海克斯在本英雄的胜率）
+const augSearch = ref('')
+const augmentColumns = computed(() => {
+  const s = augSearch.value.trim().toLowerCase()
+  return RARITY_COLS.map((col) => ({
     ...col,
-    items: props.data.augments.filter((a) => a.rarity === col.key)
+    items: props.data.augments.filter((a) => a.rarity === col.key && (!s || a.name.toLowerCase().includes(s)))
   }))
-)
+})
 const maxColLength = computed(() => Math.max(0, ...augmentColumns.value.map((c) => c.items.length)))
 
 function itemName(id: number): string {
@@ -69,7 +72,9 @@ const rarityHead: Record<string, string> = {
     <!-- ═══ 出装路线（op.gg 式：起始 → 核心序列 → 鞋） ═══ -->
     <section v-if="route.core.length || route.starters.length" class="flex flex-col gap-[8px]">
       <div class="text-[13px] font-[600] text-foreground/80">出装路线</div>
-      <div class="flex flex-wrap items-center gap-x-[18px] gap-y-[10px] rounded-[10px] bg-accent/30 px-[12px] py-[10px]">
+      <div
+        class="flex flex-wrap items-center gap-x-[18px] gap-y-[10px] rounded-[10px] bg-accent/30 px-[12px] py-[10px]"
+      >
         <div v-if="route.starters.length" class="flex items-center gap-[8px]">
           <span class="text-[11px] text-muted-foreground">起始</span>
           <div class="flex gap-[4px]">
@@ -124,7 +129,12 @@ const rarityHead: Record<string, string> = {
           :key="it.id"
           class="flex items-center gap-[8px] rounded-[7px] px-[8px] py-[4px] hover:bg-accent/40"
         >
-          <img :src="itemIconUrl(it.id)" :alt="itemName(it.id)" class="h-[26px] w-[26px] rounded-[5px] border border-border/40" loading="lazy" />
+          <img
+            :src="itemIconUrl(it.id)"
+            :alt="itemName(it.id)"
+            class="h-[26px] w-[26px] rounded-[5px] border border-border/40"
+            loading="lazy"
+          />
           <span class="flex-1 truncate text-[12px] text-foreground/85">{{ itemName(it.id) }}</span>
           <span class="text-[12px] font-[500] tabular-nums text-foreground/80">{{ pct(it.win_rate) }}</span>
         </li>
@@ -133,7 +143,15 @@ const rarityHead: Record<string, string> = {
 
     <!-- ═══ 海克斯：三列并排(棱彩|黄金|白银)，列内按胜率——实战三选一同档位 ═══ -->
     <section class="flex flex-col gap-[6px]">
-      <div class="text-[13px] font-[600] text-foreground/80">海克斯排行（胜率 · 选取率）</div>
+      <div class="flex items-center justify-between gap-[10px]">
+        <div class="text-[13px] font-[600] text-foreground/80">海克斯排行（胜率 · 选取率）</div>
+        <input
+          v-if="!compact"
+          v-model="augSearch"
+          placeholder="搜索海克斯…"
+          class="h-[26px] w-[160px] rounded-[7px] border border-border/50 bg-background/50 px-[8px] text-[12px] text-foreground outline-none transition focus:border-primary/50"
+        />
+      </div>
       <div class="grid grid-cols-3" :class="compact ? 'gap-[8px]' : 'gap-[14px]'">
         <div v-for="col in augmentColumns" :key="col.key" class="flex min-w-0 flex-col gap-[4px]">
           <div class="flex items-center gap-[5px] border-b border-border/50 pb-[4px]">
@@ -142,15 +160,23 @@ const rarityHead: Record<string, string> = {
             <span class="text-[11px] text-muted-foreground">{{ col.items.length }}</span>
           </div>
           <div
-            v-for="aug in augExpanded ? col.items : col.items.slice(0, PREVIEW_COUNT)"
+            v-for="aug in augExpanded || augSearch.trim() ? col.items : col.items.slice(0, PREVIEW_COUNT)"
             :key="aug.id"
             class="flex items-center gap-[6px] rounded-[6px] px-[4px] py-[3px] hover:bg-accent/40"
             :title="`${aug.name} · 胜率 ${pct(aug.win_rate)} · 选取 ${pct(aug.pick_rate)}`"
           >
-            <img v-if="aug.icon_url" :src="aug.icon_url" :alt="aug.name" class="h-[20px] w-[20px] shrink-0 rounded-[4px]" loading="lazy" />
+            <img
+              v-if="aug.icon_url"
+              :src="aug.icon_url"
+              :alt="aug.name"
+              class="h-[20px] w-[20px] shrink-0 rounded-[4px]"
+              loading="lazy"
+            />
             <span class="min-w-0 flex-1 truncate text-[12px] text-foreground/90">{{ aug.name }}</span>
             <span class="shrink-0 text-[12px] font-[500] tabular-nums text-foreground/90">{{ pct(aug.win_rate) }}</span>
-            <span v-if="!compact" class="hidden shrink-0 text-[10.5px] tabular-nums text-muted-foreground lg:inline">{{ pct(aug.pick_rate) }}</span>
+            <span v-if="!compact" class="hidden shrink-0 text-[10.5px] tabular-nums text-muted-foreground lg:inline">{{
+              pct(aug.pick_rate)
+            }}</span>
           </div>
         </div>
       </div>
@@ -176,7 +202,8 @@ const rarityHead: Record<string, string> = {
           <span
             class="rounded-[4px] px-[6px] text-[11px] font-[600]"
             :class="trio.win_rate_tier === 1 ? 'bg-primary/20 text-primary' : 'bg-accent text-muted-foreground'"
-          >T{{ trio.win_rate_tier }}</span>
+            >T{{ trio.win_rate_tier }}</span
+          >
           <span class="flex-1 truncate text-[12.5px] text-foreground/85">{{ trio.names.join('  +  ') }}</span>
           <span class="text-[11px] tabular-nums text-muted-foreground">{{ trio.num_games }} 局</span>
         </li>
