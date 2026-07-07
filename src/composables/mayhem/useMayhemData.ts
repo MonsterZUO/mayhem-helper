@@ -94,7 +94,9 @@ export function rarityLabel(rarity: AugmentRarity): string {
 }
 
 /** 按稀有度分组（棱彩→黄金→白银），组内保持传入的胜率降序。 */
-export function groupAugmentsByRarity(augments: RankedAugment[]): Array<{ rarity: AugmentRarity; label: string; items: RankedAugment[] }> {
+export function groupAugmentsByRarity(
+  augments: RankedAugment[]
+): Array<{ rarity: AugmentRarity; label: string; items: RankedAugment[] }> {
   return RARITY_ORDER.map((rarity) => ({
     rarity,
     label: RARITY_LABEL[rarity],
@@ -167,6 +169,40 @@ export function useMayhemAugmentTiers(enabled: MaybeRefOrGetter<boolean>) {
     queryKey: ['mayhem-augment-tiers'],
     queryFn: () => invoke<MayhemAugmentTiers>('get_mayhem_augment_tiers'),
     enabled: computed(() => toValue(enabled)),
+    staleTime: Infinity
+  })
+}
+
+/** 海克斯详情里的单英雄战绩条目。 */
+export interface AugmentChampionEntry {
+  champion_id: number
+  win_rate: number
+  pick_rate: number
+  num_games: number
+}
+
+/** 海克斯详情（反向索引：海克斯 → 适配英雄排行，按胜率降序）。 */
+export interface MayhemAugmentDetail {
+  id: number
+  name: string
+  icon_url: string
+  rarity: AugmentRarity
+  patch: string
+  source: string
+  /** 入榜的单英雄最小局数门槛 */
+  min_games: number
+  /** 因样本不足被过滤的英雄数 */
+  filtered_out: number
+  champions: AugmentChampionEntry[]
+}
+
+/** 响应式取某海克斯的详情（快照反向聚合，秒回）。 */
+export function useMayhemAugmentDetail(augmentId: MaybeRefOrGetter<number | null>) {
+  const aid = computed(() => toValue(augmentId))
+  return useQuery({
+    queryKey: ['mayhem-augment-detail', aid],
+    queryFn: () => invoke<MayhemAugmentDetail>('get_mayhem_augment_detail', { augmentId: aid.value }),
+    enabled: computed(() => aid.value != null && aid.value > 0),
     staleTime: Infinity
   })
 }
