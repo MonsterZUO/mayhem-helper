@@ -30,7 +30,8 @@ docs/adr 决策；数据驱动，不做人工评级类功能。
      （推荐顺序 #1 → #3 → #2 → #4；跳过带 `in-dev`/`blocked` 的）：
      1. 认领：issue 加 `in-dev` label（防与运营环/并行会话双抢）
      2. `git worktree add ../mayhem-helper-wt/issue-<N> -b feat/issue-<N> --no-track origin/main`
-     3. worktree 内 `pnpm install`（共享 store，快）
+     3. worktree 内 `pnpm install`（共享 store，快）+ 从主仓拷 `types/*.d.ts`
+        （unplugin 生成物整目录被 gitignore，缺了 type-check 假红一片）
      4. 全文读 issue（目标/验收 checklist/边界）+ 相关文件后实现，**最小改动**，
         不越 issue 边界；发现 issue 描述与代码现实矛盾 → 停该单元，评论 issue 升级人工
      5. 跑 VERIFY（见下）→ 全绿才 push 分支
@@ -44,7 +45,9 @@ docs/adr 决策；数据驱动，不做人工评级类功能。
 在 worktree 内依次跑，任一红即本单元失败：
 
 - `pnpm type-check`（vue-tsc）
-- `pnpm lint`（oxlint + eslint，error 必清，不用 any/eslint-disable 绕）
+- `pnpm lint`（oxlint + eslint，error 必清，不用 any/eslint-disable 绕；
+  lint --fix 会顺手重排未改动文件——push 前 `git status` 核 diff，无关文件一律 checkout 回滚）
+- `pnpm type-check` 以 main 基线对照（main 现有 51 个历史报错）：改动文件 0 新增才算绿
 - `pnpm build-only`（vite 构建成功）
 - 触碰 `src-tauri/` 时追加：`cd src-tauri && cargo test --lib`
 - **验收 rubric（named-case）**：issue 的验收 checklist 逐项给 evidence
