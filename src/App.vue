@@ -33,6 +33,9 @@ const handleRouteChange = () => {
   randomTransition()
 }
 const route = useRoute()
+// 离线可用路由：不受 LCU 连接门 gate（速查库为纯离线功能，见 issue #8）
+const OFFLINE_CAPABLE_PATHS = ['/mayhem']
+const bypassConnectionGate = computed(() => OFFLINE_CAPABLE_PATHS.includes(route.path))
 </script>
 
 <template>
@@ -65,7 +68,7 @@ const route = useRoute()
             <div class="flex flex-col gap-6 p-6 bg-background">
               <router-view v-slot="{ Component }">
                 <transition :name="currentTransition" mode="out-in" @before-leave="handleRouteChange">
-                  <component :is="isConnected ? Component : ClientDisconnected" />
+                  <component :is="isConnected || bypassConnectionGate ? Component : ClientDisconnected" />
                 </transition>
               </router-view>
               <BorderBeam
