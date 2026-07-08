@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core'
 import ChampionSelector from '@/components/features/auto-function/ChampionSelector.vue'
 import MayhemBuild from '@/components/features/mayhem/MayhemBuild.vue'
 import { getChampionIconUrlByAlias } from '@/lib'
+import { aramBalanceEntries, ARAM_BALANCE_SOURCE } from '@/lib/aramBalance'
 import { useChampionSummaryQuery } from '@/composables/useLolApiQuery'
 import {
   useMayhemChampion,
@@ -33,6 +34,7 @@ const tab = ref<'champion' | 'tiers'>('champion')
 
 const championId = computed(() => selected.value?.id ?? null)
 const { data, isLoading, isError } = useMayhemChampion(championId)
+const balanceEntries = computed(() => (championId.value ? aramBalanceEntries(championId.value) : []))
 
 const tiersEnabled = computed(() => tab.value === 'tiers' && !selected.value)
 const { data: tiers, isLoading: tiersLoading } = useMayhemAugmentTiers(tiersEnabled)
@@ -314,6 +316,22 @@ function pct(v: number): string {
           <div class="mt-[3px] text-[12px] text-muted-foreground">
             <span v-if="data">数据来源 {{ data.source }} · 版本 {{ data.patch }}</span>
             <span v-else>加载中…</span>
+          </div>
+          <!-- 大乱斗平衡参数（ARAM 系数，无调整的英雄不显示） -->
+          <div v-if="balanceEntries.length" class="mt-[6px] flex flex-wrap items-center gap-[6px]">
+            <span class="text-[11px] text-muted-foreground">大乱斗平衡:</span>
+            <span
+              v-for="entry in balanceEntries"
+              :key="entry.label"
+              class="rounded-[5px] px-[6px] py-[1px] text-[11px] font-[500] tabular-nums"
+              :class="
+                entry.buff
+                  ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-red-500/12 text-red-600 dark:text-red-400'
+              "
+              :title="`${ARAM_BALANCE_SOURCE}`"
+              >{{ entry.label }} {{ entry.text }}</span
+            >
           </div>
         </div>
         <div class="flex items-center gap-[8px]">
