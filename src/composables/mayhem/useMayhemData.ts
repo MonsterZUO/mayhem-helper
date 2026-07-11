@@ -81,6 +81,31 @@ export interface MayhemChampion {
   trios: AugmentTrio[]
 }
 
+export interface MayhemSummonerSpell {
+  ids: number[]
+  win: number
+  play: number
+  pickRate: number
+}
+
+export interface MayhemSkills {
+  masteries: string[]
+  order: string[]
+}
+
+export interface MayhemSupplement {
+  version: string
+  summonerSpells: MayhemSummonerSpell[]
+  championSkills: MayhemSkills
+}
+
+export const MAYHEM_SUPPLEMENT_SOURCE = 'OP.GG Global ARAM'
+
+const MAYHEM_OPGG_REGION = 'global'
+const MAYHEM_OPGG_MODE = 'aram'
+const MAYHEM_OPGG_POSITION = 'NONE'
+const MAYHEM_OPGG_TIER = 'all'
+
 const RARITY_ORDER: AugmentRarity[] = ['prismatic', 'gold', 'silver', 'unknown']
 const RARITY_LABEL: Record<AugmentRarity, string> = {
   prismatic: '棱彩',
@@ -213,6 +238,24 @@ export function useMayhemChampion(championId: MaybeRefOrGetter<number | null>) {
   return useQuery({
     queryKey: ['mayhem-champion', cid],
     queryFn: () => fetchMayhemChampion(cid.value as number),
+    enabled: computed(() => cid.value != null && cid.value > 0),
+    staleTime: 1000 * 60 * 30
+  })
+}
+
+/** 取 ARAM 技能加点与召唤师技能；不可达或无数据时由页面静默隐藏。 */
+export function useMayhemSupplement(championId: MaybeRefOrGetter<number | null>) {
+  const cid = computed(() => toValue(championId))
+  return useQuery({
+    queryKey: ['mayhem-supplement', cid],
+    queryFn: () =>
+      invoke<MayhemSupplement>('get_opgg_champion_build', {
+        region: MAYHEM_OPGG_REGION,
+        mode: MAYHEM_OPGG_MODE,
+        championId: cid.value,
+        position: MAYHEM_OPGG_POSITION,
+        tier: MAYHEM_OPGG_TIER
+      }),
     enabled: computed(() => cid.value != null && cid.value > 0),
     staleTime: 1000 * 60 * 30
   })

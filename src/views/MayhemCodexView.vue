@@ -5,16 +5,19 @@ import { Dices, Search, ExternalLink, PanelTopOpen, Loader2, Sparkles, ArrowLeft
 import { invoke } from '@tauri-apps/api/core'
 import ChampionSelector from '@/components/features/auto-function/ChampionSelector.vue'
 import MayhemBuild from '@/components/features/mayhem/MayhemBuild.vue'
-import { getChampionIconUrlByAlias } from '@/lib'
+import { getChampionIconUrlByAlias, getSpellMeta } from '@/lib'
 import { aramBalanceEntries, ARAM_BALANCE_SOURCE } from '@/lib/aramBalance'
 import { useChampionSummaryQuery } from '@/composables/useLolApiQuery'
 import {
   useMayhemChampion,
   useMayhemAugmentTiers,
   useMayhemAugmentDetail,
+  useMayhemSupplement,
   applyMayhemItemSet,
   toggleOverlay,
-  rarityLabel
+  rarityLabel,
+  MAYHEM_SUPPLEMENT_SOURCE,
+  type MayhemSummonerSpell
 } from '@/composables/mayhem/useMayhemData'
 
 interface ChampionSummary {
@@ -34,7 +37,17 @@ const tab = ref<'champion' | 'tiers'>('champion')
 
 const championId = computed(() => selected.value?.id ?? null)
 const { data, isLoading, isError } = useMayhemChampion(championId)
+const { data: supplementData } = useMayhemSupplement(championId)
 const balanceEntries = computed(() => (championId.value ? aramBalanceEntries(championId.value) : []))
+
+const skillRecommendation = computed(() => supplementData.value?.championSkills)
+const topSummonerSpell = computed(() => selectTopSummonerSpell(supplementData.value?.summonerSpells ?? []))
+const hasSupplement = computed(
+  () =>
+    Boolean(skillRecommendation.value?.masteries.length) ||
+    Boolean(skillRecommendation.value?.order.length) ||
+    topSummonerSpell.value != null
+)
 
 const tiersEnabled = computed(() => tab.value === 'tiers' && !selected.value)
 const { data: tiers, isLoading: tiersLoading } = useMayhemAugmentTiers(tiersEnabled)
@@ -127,6 +140,20 @@ async function openOverlay() {
 
 function pct(v: number): string {
   return `${(v * 100).toFixed(1)}%`
+}
+
+function summonerSpellWinRate(spell: MayhemSummonerSpell): number {
+  return spell.play > 0 ? spell.win / spell.play : 0
+}
+
+function selectTopSummonerSpell(spells: MayhemSummonerSpell[]): MayhemSummonerSpell | null {
+  let top: MayhemSummonerSpell | null = null
+  for (const spell of spells) {
+    if (!top || summonerSpellWinRate(spell) > summonerSpellWinRate(top)) {
+      top = spell
+    }
+  }
+  return top
 }
 </script>
 
@@ -332,6 +359,37 @@ function pct(v: number): string {
               :title="`${ARAM_BALANCE_SOURCE}`"
               >{{ entry.label }} {{ entry.text }}</span
             >
+          </div>
+          <div v-if="hasSupplement" class="mt-[8px] flex flex-col gap-[5px]">
+            <div
+              v-if="skillRecommendation && (skillRecommendation.masteries.length || skillRecommendation.order.length)"
+              class="flex flex-wrap items-center gap-[6px] text-[11px] leading-[16px]"
+            >
+              <span class="text-muted-foreground">技能加点:</span>
+              <span v-if="skillRecommendation.masteries.length" class="font-[600] text-foreground/90">
+                主 {{ skillRecommendation.masteries.join(' > ') }}
+              </span>
+              <span v-if="skillRecommendation.order.length" class="text-foreground/70">
+                {{ skillRecommendation.order.join(' → ') }}
+              </span>
+            </div>
+            <div v-if="topSummonerSpell" class="flex flex-wrap items-center gap-[6px] text-[11px] leading-[16px]">
+              <span class="text-muted-foreground">召唤师技能:</span>
+              <span class="flex items-center gap-[4px]">
+                <span v-for="spellId in topSummonerSpell.ids" :key="spellId" class="flex items-center gap-[3px]">
+                  <img
+                    :src="getSpellMeta(spellId).icon"
+                    :alt="getSpellMeta(spellId).label"
+                    class="h-[18px] w-[18px] rounded-[4px]"
+                  />
+                  <span class="font-[500] text-foreground/90">{{ getSpellMeta(spellId).label }}</span>
+                </span>
+              </span>
+              <span class="text-muted-foreground">胜率 {{ pct(summonerSpellWinRate(topSummonerSpell)) }}</span>
+            </div>
+            <div class="text-[10px] leading-[14px] text-muted-foreground">
+              数据来源 {{ MAYHEM_SUPPLEMENT_SOURCE }} · 版本 {{ supplementData?.version || '未说明' }}
+            </div>
           </div>
         </div>
         <div class="flex items-center gap-[8px]">

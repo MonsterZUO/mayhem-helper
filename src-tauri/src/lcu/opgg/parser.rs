@@ -3,6 +3,12 @@ use serde_json::Value;
 
 /// 解析OP.GG英雄详细数据
 pub fn parse_champion_build(data: Value, position: &str) -> Result<OpggChampionBuild, String> {
+    let version = data
+        .get("meta")
+        .and_then(|meta| meta.get("version"))
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_string();
     let content = data.get("data").unwrap_or(&data); // 兼容 data.data 或 data
 
     // summary
@@ -55,6 +61,7 @@ pub fn parse_champion_build(data: Value, position: &str) -> Result<OpggChampionB
     let champion_skills = parse_champion_skills(content)?;
 
     Ok(OpggChampionBuild {
+        version,
         summary,
         summoner_spells,
         champion_skills,
@@ -329,4 +336,43 @@ fn parse_champion_skills(content: &Value) -> Result<OpggSkills, String> {
         win,
         pick_rate,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parses_aram_skills_spells_and_version() {
+        let data = json!({
+            "meta": { "version": "16.13" },
+            "data": {
+                "summary": {
+                    "id": 5,
+                    "name": "Xin Zhao",
+                    "average_stats": {}
+                },
+                "summoner_spells": [
+                    { "ids": [4, 32], "win": 60, "play": 100, "pick_rate": 0.8 }
+                ],
+                "skill_masteries": [
+                    {
+                        "ids": ["W", "E", "Q"],
+                        "win": 55,
+                        "play": 100,
+                        "pick_rate": 0.6,
+                        "builds": [{ "order": ["Q", "W", "E", "W"] }]
+                    }
+                ]
+            }
+        });
+
+        let build = parse_champion_build(data, "NONE").unwrap();
+
+        assert_eq!(build.version, "16.13");
+        assert_eq!(build.summoner_spells[0].ids, vec![4, 32]);
+        assert_eq!(build.champion_skills.masteries, vec!["W", "E", "Q"]);
+        assert_eq!(build.champion_skills.order, vec!["Q", "W", "E", "W"]);
+    }
 }

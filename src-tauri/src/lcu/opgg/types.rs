@@ -10,6 +10,7 @@ use ts_rs::TS;
 )]
 #[serde(rename_all = "camelCase")]
 pub struct OpggChampionBuild {
+    pub version: String,
     pub summary: OpggChampionSummary,
     pub summoner_spells: Vec<OpggSummonerSpell>,
     pub champion_skills: OpggSkills,
